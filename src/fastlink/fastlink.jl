@@ -1,5 +1,3 @@
-
-using Base: read_sub
 function check_var_types(x::DataFrame, y::DataFrame, varnames::Vector{String})
     xtypes=eltype.(eachcol(select(x, varnames)))
     ytypes=eltype.(eachcol(select(y, varnames)))

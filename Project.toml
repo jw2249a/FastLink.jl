@@ -4,5 +4,6 @@ authors = ["Jack R. Williams <contact@jackryanwilliams.com>"]
 version = "0.1.0"
 
 [deps]
-CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+PooledArrays = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
 StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"

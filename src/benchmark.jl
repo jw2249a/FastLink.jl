@@ -4,7 +4,7 @@ using BenchmarkTools
 using CSV
 
 N1=10_000
-N2=10_000
+N2=10_0000
 fil="../../rstudio/test_merge/data/tv_export_CA.csv"
 vf_fil="../../rstudio/test_merge/data/vf_export_CA.csv"
 
@@ -26,8 +26,9 @@ tv=CSV.read(fil, DataFrame,
 varnames=["FIRST_NAME", "MIDDLE_NAME", "LAST_NAME"]
 
 
+@time FastLink.fastLink(tv,vf,varnames)
 
-comparison_levels=[2,1,2,1,2]
-res=ResultMatrix(comparison_levels, (nrow(tv), nrow(vf)))
 
-@btime FastLink.fastLink(tv,vf,varnames) evals=1
+
+
+

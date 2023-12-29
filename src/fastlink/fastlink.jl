@@ -92,7 +92,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                     res.dims)
     end
 
-   tableCounts(res.result_matrix)
+    counts = tableCounts(res.result_matrix)
     
 
 end

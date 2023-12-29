@@ -4,9 +4,9 @@ using BenchmarkTools
 using CSV
 
 N1=10_000
-N2=10_0000
-fil="../../rstudio/test_merge/data/tv_export_CA.csv"
-vf_fil="../../rstudio/test_merge/data/vf_export_CA.csv"
+N2=100_000
+fil=""
+vf_fil=""
 
 
 vf=CSV.read(vf_fil, DataFrame,

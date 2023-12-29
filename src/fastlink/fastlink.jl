@@ -1,3 +1,69 @@
+
+using Base: read_sub
+function check_var_types(x::DataFrame, y::DataFrame, varnames::Vector{String})
+    xtypes=eltype.(eachcol(select(x, varnames)))
+    ytypes=eltype.(eachcol(select(y, varnames)))
+
+    for (ix,iy,iv) in zip(xtypes,ytypes, varnames)
+        if ix !== iy
+            throw("*(VAR $iv)*: dfA type $ix does not match dfB type $ix")
+        end
+    end
+    return xtypes
+end
+
+
+struct fastLinkVars
+    varsnames::Vector{String}
+    types::Vector{Type}
+    
+    function fastLinkVars(dfA::DataFrame, dfB::DataFrame,varnames::Vector{String})
+
+        varsA=names(dfA)
+        varsB=names(dfB)
+        types = []
+        ## checking that each var is validly defined
+        for i in varnames
+            if all(i .!== varsA)
+                throw("Missing var $i from dfA")
+            end
+            if all(i .!== varsB) 
+                throw("Missing var $i from dfB")
+
+            end
+        end
+        vartypes=check_var_types(dfA,dfB,varnames)
+        new(varnames, vartypes)
+    end  
+end
+
+function tableCounts(res_matrix::Matrix)
+
+    tids=1:Threads.nthreads()
+    resultvec=[Dict() for i in tids]
+    countvec=[Dict() for i in tids]
+    Threads.@threads for i in eachrow(res_matrix)
+        resdict=resultvec[Threads.threadid()]
+        cntdict=countvec[Threads.threadid()]
+        if haskey(resdict, i)
+            push!(resdict[i], i.indices[1])
+            cntdict[i] += 1
+        else
+            resdict[i] = [i.indices[1]]
+            cntdict[i] = 1
+        end
+    end
+
+    finalcounts=Dict()
+    finalindices=Dict()
+    for i in tids
+        mergewith!(append!,finalindices, resultvec[i])
+        mergewith!(+, finalcounts,countvec[i])
+    end
+    return (finalindices, finalcounts)
+end
+
+
 function fastLink(dfA::DataFrame, dfB::DataFrame,
                   varnames::Vector{String};
                   stringdist_method = "jw",
@@ -13,20 +79,22 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                   return_df = false,
                   linprog_dedupe = false,
                   verbose = false)
-
-
-    function check_for_variables(dfA, dfB, varnames)
-
-    end
+    # Allow missing vals in case one has no missing vals
+    allowmissing!(dfA)
+    allowmissing!(dfB)
     
-    if !all(map(x-> any(x .== names(dfA)), varnames))
-        throw("")
+    vars=fastLinkVars(dfA, dfB, varnames)
+    comparison_levels=[2 for i in varnames]
+    res=ResultMatrix(comparison_levels, (nrow(dfA), nrow(dfB)))
+    for col in 1:length(varnames)
+        gammaCKpar!(dfA[!,varnames[col]],
+                    dfB[!,varnames[col]],
+                    view(res.result_matrix,:,res.ranges[col]),
+                    res.array_2Dindex,
+                    res.dims)
     end
+
+   tableCounts(res.result_matrix)
     
-    result_matrix
-    for var in varnames
-
-    end
-
 
 end

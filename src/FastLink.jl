@@ -1,7 +1,8 @@
 module FastLink
 using DataFrames
+using PooledArrays
 import StringDistances: Jaro, JaroWinkler, Levenshtein, DamerauLevenshtein
-import PooledArrays: PooledVector
+
 
 include("resultMatrix.jl")
 include("gammaCKpar.jl")

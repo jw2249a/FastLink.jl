@@ -35,33 +35,6 @@ struct fastLinkVars
     end  
 end
 
-function tableCounts(res_matrix::Matrix)
-
-    tids=1:Threads.nthreads()
-    resultvec=[Dict() for i in tids]
-    countvec=[Dict() for i in tids]
-    Threads.@threads for i in eachrow(res_matrix)
-        resdict=resultvec[Threads.threadid()]
-        cntdict=countvec[Threads.threadid()]
-        if haskey(resdict, i)
-            push!(resdict[i], i.indices[1])
-            cntdict[i] += 1
-        else
-            resdict[i] = [i.indices[1]]
-            cntdict[i] = 1
-        end
-    end
-
-    finalcounts=Dict()
-    finalindices=Dict()
-    for i in tids
-        mergewith!(append!,finalindices, resultvec[i])
-        mergewith!(+, finalcounts,countvec[i])
-    end
-    return (finalindices, finalcounts)
-end
-
-
 function fastLink(dfA::DataFrame, dfB::DataFrame,
                   varnames::Vector{String};
                   stringdist_method = "jw",

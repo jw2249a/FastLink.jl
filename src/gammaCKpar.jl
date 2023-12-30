@@ -1,4 +1,3 @@
-
 function gammaCKpar!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple;
                      cut_a=0.92, cut_b=0.88, distmethod="jw", w=0.1)
     match2 = [true, true]
@@ -118,5 +117,3 @@ function gammaCK2par!(vecA::PooledVector,vecB::PooledVector, results::SubArray, 
     # Return nothing
     return nothing
 end
-
-

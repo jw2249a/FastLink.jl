@@ -33,9 +33,8 @@ for N2 in N2_N
                  missingstring=["", "NA", "NaN", "NULL", "Null"])
 
     
-
-    FastLink.fastLink(dfA,dfB,varnames)
     GC.gc()
+    @btime FastLink.fastLink($dfA,$dfB,$varnames)
     println("")
 end
 

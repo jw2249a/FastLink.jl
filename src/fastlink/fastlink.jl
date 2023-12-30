@@ -1,9 +1,9 @@
 function check_var_types(x::DataFrame, y::DataFrame, varnames::Vector{String})
     xtypes=eltype.(eachcol(select(x, varnames)))
     ytypes=eltype.(eachcol(select(y, varnames)))
-
+    # checking if precompile will pick up on this
     for (ix,iy,iv) in zip(xtypes,ytypes, varnames)
-        if ix !== iy
+        if (ix <: Union{Missing,AbstractString}) ⊽ (iy <: Union{Missing,AbstractString})
             throw("*(VAR $iv)*: dfA type $ix does not match dfB type $ix")
         end
     end
@@ -65,7 +65,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                     res.dims)
     end
 
-    counts = tableCounts(res.result_matrix)
+    counts = tableCounts(view(res.result_matrix,:,:), varnames)
 
     return counts
 

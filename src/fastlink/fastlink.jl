@@ -57,12 +57,19 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     vars=fastLinkVars(dfA, dfB, varnames)
     comparison_levels=[2 for i in varnames]
     res=ResultMatrix(comparison_levels, (nrow(dfA), nrow(dfB)))
+    
     for col in 1:length(varnames)
-        gammaCKpar!(dfA[!,varnames[col]],
-                    dfB[!,varnames[col]],
-                    view(res.result_matrix,:,res.ranges[col]),
-                    res.array_2Dindex,
-                    res.dims)
+
+        gammaCKfuzzy!(dfA[!,varnames[1]],
+                      dfB[!,varnames[1]],
+                      view(res.result_matrix,:,res.ranges[1]),
+                      res.array_2Dindex,
+                      res.dims)
+        # gammaCKpar!(dfA[!,varnames[col]],
+        #             dfB[!,varnames[col]],
+        #             view(res.result_matrix,:,res.ranges[col]),
+        #             res.array_2Dindex,
+        #             res.dims)
     end
 
     counts = tableCounts(view(res.result_matrix,:,:), varnames)

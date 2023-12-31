@@ -3,7 +3,7 @@ using FastLink
 using BenchmarkTools
 using CSV
 
-include("utils/prettyprinting.jl")
+include("src/utils/prettyprinting.jl")
 
 a_fil="../../rstudio/test_merge/data/test_a.csv"
 b_fil="../../rstudio/test_merge/data/test_b.csv"

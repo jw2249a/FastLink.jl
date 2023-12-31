@@ -3,7 +3,7 @@ using FastLink
 using BenchmarkTools
 using CSV
 
-include("src/utils/prettyprinting.jl")
+include("utils/prettyprinting.jl")
 
 a_fil="../../rstudio/test_merge/data/test_a.csv"
 b_fil="../../rstudio/test_merge/data/test_b.csv"
@@ -11,9 +11,9 @@ b_fil="../../rstudio/test_merge/data/test_b.csv"
 #varnames=["FIRST_NAME"]
 #varnames=["FIRST_NAME", "MIDDLE_NAME", "LAST_NAME"]
 varnames=["FIRST_NAME", "MIDDLE_NAME", "LAST_NAME", "STREET_NAME", "STATE"]
-
+#[100,200,500,1_000,2_000,4_000, 5_000, 10_000,20_000, 40_000, 50_000,100_000,1_000_000]
 N1=1_000
-N2_N=[100,200,500,1_000,2_000,4_000, 5_000, 10_000,20_000, 40_000, 50_000,100_000,1_000_000]
+N2_N=[20_000, 40_000, 50_000,100_000,1_000_000]
 println("## $(length(varnames)) vars")
 for N2 in N2_N
 
@@ -32,6 +32,7 @@ for N2 in N2_N
                  pool=true,
                  missingstring=["", "NA", "NaN", "NULL", "Null"])
 
+    
     
     GC.gc()
     @btime FastLink.fastLink($dfA,$dfB,$varnames)

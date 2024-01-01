@@ -1,4 +1,4 @@
-function center_in_line(str::String, width::Int = 100, pad_char::Char = '#')
+function center_in_line(str::String, width::Int = 100;pad_char::Char = '#')
     str_length = length(str)
     if str_length >= width
         return str

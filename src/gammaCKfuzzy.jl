@@ -1,7 +1,8 @@
-function pool_lookup_table(vec::PooledVector)::Dict{UInt32, Vector{UInt32}}
-    lookup_by_id = Dict{UInt32, Vector{UInt32}}()
-    for name in collect(vec.invpool.vals)
-        lookup_by_id[name] = findall(x -> x == name, vec.refs) 
+function pool_lookup_table(vec::Vector{UInt32},len::UInt32)
+    lookup_by_id = fill(Vector{UInt32}(), len)
+    
+    Threads.@threads for pool_index in UInt32(1):len
+        lookup_by_id[pool_index] = (1:length(vec))[vec .=== pool_index]
     end
     return lookup_by_id
 end
@@ -25,48 +26,25 @@ mutable struct CandidateScore
     end
 end
 
-
-
-function build_candidate_lookup(name_vec::Vector{T};
-                                allcaps::Bool = true)::Vector{Vector{CandidateLetterInfo}} where T <: AbstractString
-    # defining the range of all the letters
-    firstletter::UInt8 = allcaps ? 0x41 : 0x61
-    letters::UnitRange{UInt8} = UnitRange(firstletter,firstletter+0x19)
-    
-    letter_lookup = Vector{Vector{CandidateLetterInfo}}(undef, 26)
-    
-    Threads.@threads for letter in letters
-        candidate_infos = Vector{CandidateLetterInfo}()
-        for (name_index, name) in enumerate(name_vec)
-                mask = UInt16(0)
-                for (matching_index_in_name, c) in enumerate(codeunits(name))
-                    if c == letter
-                        mask += UInt16(2)^(matching_index_in_name - 1)
-                    end
-                end
-                if mask != 0
-                    push!(candidate_infos, CandidateLetterInfo(name_index, UInt8(ncodeunits(name)), mask))
-                end
-
-            letter_lookup[letter - firstletter + 1] = candidate_infos
-        end
-    end
-    return letter_lookup
+function build_candidate_scores(x::Vector)
+    [CandidateScore(ismissing(name) ? 1024 : min(ncodeunits(name),16)) for name in x]
 end
 
-function build_candidate_lookup(name_vec::Vector{Union{Missing,T}};
-                                allcaps::Bool = true)::Vector{Vector{CandidateLetterInfo}} where T <: AbstractString
+
+function build_candidate_lookup(name_vec::Vector;
+                                spaceletter::UInt8 = 0x40,lastletter::UInt8 = 0x5a)::Vector{Vector{CandidateLetterInfo}}
     # defining the range of all the letters
-    firstletter::UInt8 = allcaps ? 0x41 : 0x61
-    letters::UnitRange{UInt8} = UnitRange(firstletter,firstletter+0x19)
+    letters::UnitRange{UInt8} = UnitRange(spaceletter+1,lastletter)
+
+    letter_lookup = fill(Vector{CandidateLetterInfo}(),lastletter-spaceletter+1)
+    #letter_lookup = Vector{Vector{CandidateLetterInfo}}(undef, lastletter-spaceletter+1)
     
-    letter_lookup = Vector{Vector{CandidateLetterInfo}}(undef, 26)
-    
-    Threads.@threads for letter in letters
+    for letter in letters
         candidate_infos = Vector{CandidateLetterInfo}()
-        for (name_index, name) in enumerate(name_vec)
+        for (name_index, name) in collect(enumerate(name_vec))
             if !ismissing(name)
                 mask = UInt16(0)
+                name=first(name,16)
                 for (matching_index_in_name, c) in enumerate(codeunits(name))
                     if c == letter
                         mask += UInt16(2)^(matching_index_in_name - 1)
@@ -76,14 +54,31 @@ function build_candidate_lookup(name_vec::Vector{Union{Missing,T}};
                     push!(candidate_infos, CandidateLetterInfo(name_index, UInt8(ncodeunits(name)), mask))
                 end
             end
-            letter_lookup[letter - firstletter + 1] = candidate_infos
+            letter_lookup[letter - spaceletter + 1] = candidate_infos
         end
+    end
+    # alter it for spaces
+    letter=0x20
+    candidate_infos = Vector{CandidateLetterInfo}()
+    for (name_index, name) in collect(enumerate(name_vec))
+        if !ismissing(name)
+            mask = UInt16(0)
+            name=first(name,16)
+            for (matching_index_in_name, c) in enumerate(codeunits(name))
+                if c == letter
+                    mask += UInt16(2)^(matching_index_in_name - 1)
+                end
+            end
+            if mask != 0
+                push!(candidate_infos, CandidateLetterInfo(name_index, UInt8(ncodeunits(name)), mask))
+            end
+        end
+        letter_lookup[1] = candidate_infos
     end
     return letter_lookup
 end
 
-
-function get_query_mask(cl::Int,query_mask::UInt16, min_match_dist::Int)::UInt16
+function get_query_mask(cl::UInt8,query_mask::UInt16, min_match_dist::UInt8)::UInt16
     match_distance=cl <= 3 || cl ÷ 2 - 1 <= min_match_dist ? min_match_dist : cl ÷ 2 - 1
     for _ in 0:match_distance
         query_mask = query_mask << 1 | query_mask;
@@ -92,13 +87,13 @@ function get_query_mask(cl::Int,query_mask::UInt16, min_match_dist::Int)::UInt16
     return query_mask;
 end
 """Converts a string to a list of bitmasks"""
-function maskify(query::T;
-                 space_char::UInt8=0x60)::Vector{Tuple{UInt8, Vector{UInt16}}} where T <: AbstractString
-    min_match_dist = let len=ncodeunits(query); len > 3 ? len ÷ 2 - 1 : 0 end
-
-    [(c-space_char,
-      [get_query_mask(cl,0x0001 << i,min_match_dist) for cl in 1:16])
-    for (i, c) in enumerate(replace(codeunits(query), 0x20 => space_char))]
+function maskify(query::T,len::UInt8;
+                 space_char::UInt8=0x40, max_char::UInt8=0x5a)::Vector{Tuple{UInt8, Vector{UInt16}}} where T <: AbstractString
+    min_match_dist = UInt8(len > 3 ? len ÷ 2 - 1 : 0)
+    
+    [(c-space_char+UInt8(1),
+      [get_query_mask(cl,0x0001 << i,min_match_dist) for cl in UInt8(1):UInt8(16)])
+    for (i, c) in enumerate(filter(x-> x>=space_char && x<=max_char, replace(codeunits(query), 0x20 => space_char)))]
 end
 
 function score_letter!(candidate_score::CandidateScore, query_mask::UInt16, candidate_mask::UInt16, query_index::Int)
@@ -122,89 +117,92 @@ function calculate_jaro_winkler(score::CandidateScore, query_partial::UInt16; p=
     return jaro + p * l * (1.0 - jaro)
 end
 
-function format_vector(x)
-    first(replace(replace(x, " "=>""), !isascii=>""),16)
+
+
+
+function find_missing_index(d::Dict)::UInt32
+    return let x = [i for i in values(filter(x->ismissing(x[1]), d))]; length(x) > 0 ? x[1] : UInt32(0) ; end
 end
+
 
 function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple;
                        cut_a=0.92, cut_b=0.88,upper=true)
-    match2 = [true, true]
-    match1 = [true, false]
-    missingval = [false, true]
 
-    vecA = Vector(map(x-> ismissing(x) || format_vector(x)=="" ? missing : format_vector(x), vecA))
-    vecB = Vector(map(x-> ismissing(x) || format_vector(x)=="" ? missing : format_vector(x), vecB))
-    
-    missingvals_x=filter(x->ismissing(x),vecA)
-    missingvals_y=filter(x->ismissing(x),vecB)
+    # functions that update the results view
+    function update_results!(a_ids::Vector{UInt32},
+                             b_ids::Vector{UInt32},
+                             val::Matrix{Bool};
+                             results::SubArray=results,
+                             array_2Dindex::Function=array_2Dindex)
+        results[[array_2Dindex(UInt32(ia),UInt32(ib)) for ia in a_ids for ib in b_ids],:] .= val
+        return nothing
+    end
+    function update_results!(a_ids::Vector{UInt32},
+                             b_ids::UnitRange{UInt32},
+                             val::Matrix{Bool};
+                             results::SubArray=results,
+                             array_2Dindex::Function=array_2Dindex)
+        results[[array_2Dindex(UInt32(ia),UInt32(ib)) for ia in a_ids for ib in b_ids],:] .= val
+        return nothing
+    end
 
-    filter!(x->!ismissing(x),vecA)
-    filter!(x->!ismissing(x),vecB)
     
-    lookup_a_by_name = Dict(name => findall(x -> x == name, vecA) for name in vecA)
-    copy!(vecA,sort!(unique(vecA)))
-    lookup_a_by_id = Dict(i => lookup_a_by_name[name] for (i, name) in enumerate(vecA))
+    match2 = [true  true]
+    match1 = [true false]
+    missingval = [false true]
 
-    lookup_b_by_name = Dict(name => findall(x -> x == name, vecB) for name in vecB)
-    copy!(vecB,sort!(unique(vecB)))
-    lookup_b_by_id = Dict(i => lookup_b_by_name[name] for (i, name) in enumerate(vecB))
+    if upper
+        space_char,max_char = 0x40,0x5a
+    else
+        space_char,max_char = 0x60,0x7a
+    end
     
-    base_candidate_lookup = build_candidate_lookup(vecB)
-    base_candidate_scores = [CandidateScore(ncodeunits(name)) for name in vecB]
+    lenA=UInt32(length(vecA.pool))
+    lenB=UInt32(length(vecB.pool))
+
+    lookup_a_by_id=pool_lookup_table(vecA.refs, lenA)
+    lookup_b_by_id=pool_lookup_table(vecB.refs, lenB)
     
-    Threads.@threads for (new_a_id,query_name) in collect(enumerate(vecA))
-        query_masks_lookup = maskify(query_name,space_char=0x40)
-        query_partial = UInt16(1024 ÷ ncodeunits(query_name))
+    missingindexA = find_missing_index(vecA.invpool)
+    
+    base_candidate_lookup = build_candidate_lookup(vecB.pool,spaceletter=space_char,lastletter=max_char)
+    base_candidate_scores = build_candidate_scores(vecB.pool)
+    
+    Threads.@threads for (query_name,new_a_id) in collect(vecA.invpool)
+        # pass if query is missing val
+        if new_a_id === missingindexA
+            update_results!(lookup_a_by_id[new_a_id],UInt32(1):UInt32(dims[2]),missingval)
+            continue
+        end
+        
+        query_len=UInt8(min(ncodeunits(query_name),16))
+        query_masks_lookup = maskify(query_name,query_len,space_char=0x40,max_char=max_char)
+        query_partial = UInt16(1024 ÷ query_len)
         candidate_scores = deepcopy(base_candidate_scores)
+        
         for (query_index, (letter_index, query_mask_by_candidate_len)) in enumerate(query_masks_lookup)
-            for c_info in @inbounds base_candidate_lookup[letter_index]
+            for c_info in base_candidate_lookup[letter_index]
                 candidate_score = candidate_scores[c_info.name_index]
                 query_mask = query_mask_by_candidate_len[c_info.len]
                 score_letter!(candidate_score, query_mask, c_info.mask, query_index)
             end
         end
-
+        
         a_ids = lookup_a_by_id[new_a_id]
         for (score_i, score) in enumerate(candidate_scores)
+            if score.len_partial === UInt16(1)                
+                update_results!(a_ids,lookup_b_by_id[score_i],missingval)
+                continue
+            end
             # if present calculate scores
             jw = calculate_jaro_winkler(score, query_partial)
             if jw >= cut_a
-                b_ids = lookup_b_by_id[score_i]
-                for a_id in a_ids
-                    for b_id in b_ids
-                        results[array_2Dindex(Int(a_id),Int(b_id)),:] = match2
-                    end
-                end
+                update_results!(a_ids,lookup_b_by_id[score_i],match2)
             elseif jw >= cut_b
-                b_ids = lookup_b_by_id[score_i]
-                for a_id in a_ids
-                    for b_id in b_ids
-                        results[array_2Dindex(Int(a_id),Int(b_id)),:] = match1
-                    end
-                end
-            end
-            
+                update_results!(a_ids,lookup_b_by_id[score_i],match1)
+            end         
         end
-
     end
 
-    if length(missingvals_x) != 0
-        missingindices = findall(ismissing.(vecA))
-        Threads.@threads for iy in 1:dims[2]
-            for ix in missingindices
-                results[array_2Dindex(ix,iy),:] = missingval
-            end
-        end
-    end
-    # set all to missing where y is missing
-    if length(missingvals_y) != 0
-        missingindices = findall(ismissing.(vecB))
-        Threads.@threads for ix in 1:dims[1]
-            for iy in missingindices
-                results[array_2Dindex(ix,iy),:] = missingval
-            end
-        end
-    end
-    
     return nothing
 end

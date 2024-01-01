@@ -36,7 +36,8 @@ struct fastLinkVars
 end
 
 function fastLink(dfA::DataFrame, dfB::DataFrame,
-                  varnames::Vector{String};
+                  varnames::Vector{String},
+                  fuzzy::Bool;
                   stringdist_method = "jw",
                   cut_a = 0.94, cut_p = 0.88,
                   jw_weight = 0.1,
@@ -59,17 +60,19 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     res=ResultMatrix(comparison_levels, (nrow(dfA), nrow(dfB)))
     
     for col in 1:length(varnames)
-
-        gammaCKfuzzy!(dfA[!,varnames[1]],
-                      dfB[!,varnames[1]],
-                      view(res.result_matrix,:,res.ranges[1]),
-                      res.array_2Dindex,
-                      res.dims)
-        # gammaCKpar!(dfA[!,varnames[col]],
-        #             dfB[!,varnames[col]],
-        #             view(res.result_matrix,:,res.ranges[col]),
-        #             res.array_2Dindex,
-        #             res.dims)
+        if fuzzy
+            gammaCKfuzzy!(dfA[!,varnames[col]],
+                          dfB[!,varnames[col]],
+                          view(res.result_matrix,:,res.ranges[col]),
+                          res.array_2Dindex,
+                          res.dims)
+        else
+            gammaCKpar!(dfA[!,varnames[col]],
+                        dfB[!,varnames[col]],
+                        view(res.result_matrix,:,res.ranges[col]),
+                        res.array_2Dindex,
+                        res.dims)
+        end
     end
 
     counts = tableCounts(view(res.result_matrix,:,:), varnames)

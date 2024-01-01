@@ -24,8 +24,8 @@ struct ResultMatrix
         new(comparison_bits, dims,
             create_ranges(comparison_bits),
             falses((prod(dims),sum(comparison_bits))),
-            function array_2Dindex(row::Int, col::Int; nrows::Int = dims[1])
-                return row + (col - 1) * nrows
+            function array_2Dindex(row::UInt32, col::UInt32; nrows = dims[1])::UInt64
+                return UInt64(row) + UInt64(col - 1) * UInt64(nrows)
             end)
     end
 end

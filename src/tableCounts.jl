@@ -5,9 +5,9 @@ end
 
 function find_matches(res_matrix::SubArray,id::Int,vlen::Int)
     targ_vec=generate_bitvector(id, vlen)
-    match_count::UInt32=0
-    row_count::UInt32=0
-    matches::Vector{UInt32}=[]
+    match_count::UInt64=0
+    row_count::UInt64=0
+    matches::Vector{UInt64}=[]
     for i in eachrow(res_matrix)
         row_count += 1
         if i == targ_vec
@@ -20,9 +20,9 @@ end
 
 function find_matches(res_matrix::Matrix,id::Int,vlen::Int)
     targ_vec=generate_bitvector(id, vlen)
-    match_count::UInt32=0
-    row_count::UInt32=0
-    matches::Vector{UInt32}=[]
+    match_count::UInt64=0
+    row_count::UInt64=0
+    matches::Vector{UInt64}=[]
     for i in eachrow(res_matrix)
         row_count += 1
         if i == targ_vec
@@ -39,7 +39,7 @@ function tableCounts_bf(res_matrix::SubArray)
     vlen=size(res_matrix)[2]
     nlevels=2^vlen
 
-    out=fill((falses(0),UInt32(0),zeros(UInt32,0)),nlevels)
+    out=fill((falses(0),UInt64(0),zeros(UInt64,0)),nlevels)
 
     Threads.@threads for i in 1:nlevels
         out[i]=find_matches(res_matrix,i, vlen)
@@ -50,7 +50,7 @@ function tableCounts_bf(res_matrix::Matrix)
     vlen=size(res_matrix)[2]
     nlevels=2^vlen
 
-    out=fill((falses(0),UInt32(0),zeros(UInt32,0)),nlevels)
+    out=fill((falses(0),UInt64(0),zeros(UInt64,0)),nlevels)
 
     Threads.@threads for i in 1:nlevels
         out[i]=find_matches(res_matrix,i, vlen)

@@ -11,4 +11,9 @@ include("tableCounts.jl")
 include("utils/prettyprinting.jl")
 include("fastlink/fastlink.jl")
 
+
+
+export(fastLink)
+
+
 end # module FastLink

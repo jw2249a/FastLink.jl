@@ -32,21 +32,24 @@ for N1 in N1_N
                  pool=true,
                  missingstring=["", "NA", "NaN", "NULL", "Null"])
 
-    
-    println(center_in_line("(FUZZY🧸🐈🦭)", pad_char='-'))
-    println(center_in_line("(FORWARD 👉)", pad_char=' '))
-    @btime FastLink.fastLink($dfA,$dfB,$varnames, true) evals=1
-    println("")
-    println(center_in_line("(BACKWARDS 👈)", pad_char=' ')) 
-    @btime FastLink.fastLink($dfB,$dfA,$varnames, true) evals=1
-    println(center_in_line("(NOT FUZZY😡😡😡)", pad_char='-')) 
-    println(center_in_line("(FORWARD 👉)", pad_char=' '))
-    @btime FastLink.fastLink($dfA,$dfB,$varnames, false) evals=1
-    println("")
-    println(center_in_line("(BACKWARDS 👈)", pad_char=' ')) 
-    GC.gc()
-    @btime FastLink.fastLink($dfB,$dfA,$varnames, false) evals=1
-    println("")
+
+    res=FastLink.fastLink(dfA,dfB,varnames,true) 
+    ################################################################
+    # println(center_in_line("(FUZZY🧸🐈🦭)", pad_char='-'))       #
+    # println(center_in_line("(FORWARD 👉)", pad_char=' '))        #
+    # @btime FastLink.fastLink($dfA,$dfB,$varnames, true) evals=1  #
+    # println("")                                                  #
+    # println(center_in_line("(BACKWARDS 👈)", pad_char=' '))      #
+    # @btime FastLink.fastLink($dfB,$dfA,$varnames, true) evals=1  #
+    # println(center_in_line("(NOT FUZZY😡😡😡)", pad_char='-'))   #
+    # println(center_in_line("(FORWARD 👉)", pad_char=' '))        #
+    # @btime FastLink.fastLink($dfA,$dfB,$varnames, false) evals=1 #
+    # println("")                                                  #
+    # println(center_in_line("(BACKWARDS 👈)", pad_char=' '))      #
+    # GC.gc()                                                      #
+    # @btime FastLink.fastLink($dfB,$dfA,$varnames, false) evals=1 #
+    # println("")                                                  #
+    ################################################################
     
 end
 

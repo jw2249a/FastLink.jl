@@ -9,7 +9,7 @@ end
 
 mutable struct CandidateLetterInfo
     name_index::UInt32
-    len::UInt8
+    len::UInt8    
     mask::UInt16
 end
 
@@ -29,7 +29,6 @@ end
 function build_candidate_scores(x::Vector)
     [CandidateScore(ismissing(name) ? 1024 : min(ncodeunits(name),16)) for name in x]
 end
-
 
 function build_candidate_lookup(name_vec::Vector;
                                 spaceletter::UInt8 = 0x40,lastletter::UInt8 = 0x5a)::Vector{Vector{CandidateLetterInfo}}

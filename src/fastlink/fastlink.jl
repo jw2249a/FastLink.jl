@@ -39,7 +39,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                   varnames::Vector{String},
                   fuzzy::Bool;
                   stringdist_method = "jw",
-                  cut_a = 0.94, cut_p = 0.88,
+                  cut_a = 0.92, cut_p = 0.88,
                   jw_weight = 0.1,
                   cut_a_num = 1, cut_p_num = 2.5,
                   tol_em = 1e-04,
@@ -74,7 +74,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                         res.dims)
         end
     end
-
+    
     counts = tableCounts(view(res.result_matrix,:,:), varnames)
 
     return counts

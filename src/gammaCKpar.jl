@@ -23,7 +23,7 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector, results::SubArray, a
         indices_x = findall(vecA.refs .=== x)
         for y in  iter_y
             indices_y = findall(vecB.refs .=== y)
-            dist=distance(vecA.pool[x],vecB.pool[y])
+            dist=round(distance(vecA.pool[x],vecB.pool[y]),digits=4)
             # if matches at a threshold, go through result vector and assign new value
             if dist <= thresh_a
                 for ix in indices_x,iy in indices_y

@@ -54,10 +54,13 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     # Allow missing vals in case one has no missing vals
     allowmissing!(dfA)
     allowmissing!(dfB)
+
+    obs_a=nrow(dfA)
+    obs_b=nrow(dfB)
     
     vars=fastLinkVars(dfA, dfB, varnames)
     comparison_levels=[2 for i in varnames]
-    res=ResultMatrix(comparison_levels, (nrow(dfA), nrow(dfB)))
+    res=ResultMatrix(comparison_levels, (obs_a,obs_b))
     
     for col in 1:length(varnames)
         if fuzzy
@@ -65,7 +68,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                           dfB[!,varnames[col]],
                           view(res.result_matrix,:,res.ranges[col]),
                           res.array_2Dindex,
-                          res.dims)
+                          res.dims,cut_a=0.92,cut_b=0.88)
         else
             gammaCKpar!(dfA[!,varnames[col]],
                         dfB[!,varnames[col]],
@@ -76,7 +79,11 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     end
     
     counts = tableCounts(view(res.result_matrix,:,:), varnames)
-
-    return counts
+    
+    resultsEM=emlinkMARmov(counts[2], obs_a,obs_b,varnames,res.ranges)
+    
+    
+    
+    return resultsEM
 
 end

@@ -120,7 +120,7 @@ function find_missing_index(d::Dict)::UInt32
 end
 
 """
-Fuzzy string comparison of two columns. 
+Fuzzy string comparison of two columns (with 2 levels of similarity).
 
 Fuzzy JW based on:
 https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operations/
@@ -131,13 +131,12 @@ https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operatio
 - `results::SubArray`: ResultMatrix object's result_matrix.
 - `array_2Dindex::Function`: ResultMatrix object's array_2Dindex function
 - `dims::Tuple`: ResultMatrix object's dims.
-- `cut_a::Float=0.92`: Upper bound for string distance cutoff.
-- `cut_b::Float=0.88`: Lower bound for string distance (if varnames in partial).
+- `cut_a::Float=0.92`: Lower bound for close string distances.
+- `cut_b::Float=0.88`: Lower bound for partial string distance.
 - `upper::Bool=true`: Whether input string is uppercase.
+- `w`: Winkler weight for jw string distance.
 """
-
-function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple;
-                       cut_a=0.92, cut_b=0.88,upper=true)
+function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple; cut_a=0.92, cut_b=0.88,upper=true,w=0.1)
 
     # functions that update the results view
     function update_results!(a_ids::Vector{UInt32},
@@ -206,11 +205,106 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray,
                 continue
             end
             # if present calculate scores
-            jw = calculate_jaro_winkler(score, query_partial)
+            jw = calculate_jaro_winkler(score, query_partial,p=w)
             if jw >= cut_a
                 update_results!(a_ids,lookup_b_by_id[score_i],match2)
             elseif jw >= cut_b
                 update_results!(a_ids,lookup_b_by_id[score_i],match1)
+            end         
+        end
+    end
+
+    return nothing
+end
+
+
+"""
+Fuzzy string comparison of two columns (with 2 levels of similarity).
+
+Fuzzy JW based on:
+https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operations/
+
+# Arguments
+- `vecA::PooledVector`: Target column of dfB for string comparison.
+- `vecB::PooledVector`: Target column of dfB for string comparison.
+- `results::SubArray`: ResultMatrix object's result_matrix.
+- `array_2Dindex::Function`: ResultMatrix object's array_2Dindex function
+- `dims::Tuple`: ResultMatrix object's dims.
+- `cut_a::Float=0.92`: String distance cutoff.
+- `upper::Bool=true`: Whether input string is uppercase.
+- `w`: Winkler weight for jw string distance.
+"""
+function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple; cut_a=0.92, upper=true,w=0.1)
+
+    # functions that update the results view
+    function update_results!(a_ids::Vector{UInt32},
+                             b_ids::Vector{UInt32},
+                             val::Matrix{Bool};
+                             results::SubArray=results,
+                             array_2Dindex::Function=array_2Dindex)
+        results[[array_2Dindex(UInt32(ia),UInt32(ib)) for ia in a_ids for ib in b_ids],:] .= val
+        return nothing
+    end
+    function update_results!(a_ids::Vector{UInt32},
+                             b_ids::UnitRange{UInt32},
+                             val::Matrix{Bool};
+                             results::SubArray=results,
+                             array_2Dindex::Function=array_2Dindex)
+        results[[array_2Dindex(UInt32(ia),UInt32(ib)) for ia in a_ids for ib in b_ids],:] .= val
+        return nothing
+    end
+
+    
+    match2 = [true true]
+    missingval = [false true]
+
+    if upper
+        space_char,max_char = 0x40,0x5a
+    else
+        space_char,max_char = 0x60,0x7a
+    end
+    
+    lenA = UInt32(length(vecA.pool))
+    lenB = UInt32(length(vecB.pool))
+
+    lookup_a_by_id=pool_lookup_table(vecA.refs, lenA)
+    lookup_b_by_id=pool_lookup_table(vecB.refs, lenB)
+    
+    missingindexA = find_missing_index(vecA.invpool)
+    
+    base_candidate_lookup = build_candidate_lookup(vecB.pool,spaceletter=space_char,lastletter=max_char)
+    base_candidate_scores = build_candidate_scores(vecB.pool)
+    
+    Threads.@threads for (query_name,new_a_id) in collect(vecA.invpool)
+        # pass if query is missing val
+        if new_a_id === missingindexA
+            update_results!(lookup_a_by_id[new_a_id],UInt32(1):UInt32(dims[2]),missingval)
+            continue
+        end
+        
+        query_len = UInt8(min(ncodeunits(query_name),16))
+        query_masks_lookup = maskify(query_name,query_len,space_char=0x40,max_char=max_char)
+        query_partial = UInt16(1024 ÷ query_len)
+        candidate_scores = deepcopy(base_candidate_scores)
+        
+        for (query_index, (letter_index, query_mask_by_candidate_len)) in enumerate(query_masks_lookup)
+            for c_info in base_candidate_lookup[letter_index]
+                candidate_score = candidate_scores[c_info.name_index]
+                query_mask = query_mask_by_candidate_len[c_info.len]
+                score_letter!(candidate_score, query_mask, c_info.mask, query_index)
+            end
+        end
+        
+        a_ids = lookup_a_by_id[new_a_id]
+        for (score_i, score) in enumerate(candidate_scores)
+            if score.len_partial === UInt16(1)                
+                update_results!(a_ids,lookup_b_by_id[score_i],missingval)
+                continue
+            end
+            # if present calculate scores
+            jw = calculate_jaro_winkler(score, query_partial,p=w)
+            if jw >= cut_a
+                update_results!(a_ids,lookup_b_by_id[score_i],match2)
             end         
         end
     end

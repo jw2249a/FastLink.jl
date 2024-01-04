@@ -60,7 +60,8 @@ Algorithm taken from:
 matched_data = fastLink(dfA, dfB, ["firstname", "lastname", "city"])
 """
 function fastLink(dfA::DataFrame, dfB::DataFrame,
-                  varnames::Vector{String};
+                  varnames::Vector{String},
+                  match_type::Vector{String};
                   fuzzy::Bool=false,
                   string_case="upper",
                   stringdist_method = "jw",
@@ -80,22 +81,37 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     vars=fastLinkVars(dfA, dfB, varnames)
     comparison_levels=[2 for i in vars.varnames]
     res=ResultMatrix(comparison_levels, (obs_a,obs_b))
-    
+    # loop over variables and apply the appropriate match method
     for col in 1:length(vars.varnames)
-        if fuzzy
-            gammaCKfuzzy!(dfA[!,vars.varnames[col]],
-                          dfB[!,vars.varnames[col]],
-                          view(res.result_matrix,:,res.ranges[col]),
-                          res.array_2Dindex,
-                          res.dims,cut_a=cut_a,cut_b=cut_p,
-                          upper=string_case == "upper")
-        else
-            gammaCKpar!(dfA[!,vars.varnames[col]],
+        if match_type[col] == "string_partial"
+            if fuzzy
+                gammaCKfuzzy!(dfA[!,vars.varnames[col]],
+                              dfB[!,vars.varnames[col]],
+                              view(res.result_matrix,:,res.ranges[col]),
+                              res.array_2Dindex,
+                              res.dims,cut_a=cut_a,cut_b=cut_p,
+                              upper=string_case == "upper",w=jw_weight)
+            else
+                gammaCKpar!(dfA[!,vars.varnames[col]],
+                            dfB[!,vars.varnames[col]],
+                            view(res.result_matrix,:,res.ranges[col]),
+                            res.array_2Dindex,
+                            res.dims,cut_a=cut_a,cut_b=cut_p,
+                            distmethod=stringdist_method,w=jw_weight)
+            end
+        elseif match_type[col] == "string"
+            gammaCK2par!(dfA[!,vars.varnames[col]],
                         dfB[!,vars.varnames[col]],
                         view(res.result_matrix,:,res.ranges[col]),
                         res.array_2Dindex,
-                        res.dims,cut_a=cut_a,cut_b=cut_p,
-                        distmethod=stringdist_method)
+                        res.dims,cut_a=cut_a,
+                        distmethod=stringdist_method,w=jw_weight)
+        elseif match_type[col] == "exact"
+            gammaKpar!(dfA[!,vars.varnames[col]],
+                       dfB[!,vars.varnames[col]],
+                       view(res.result_matrix,:,res.ranges[col]),
+                       res.array_2Dindex,
+                       res.dims)
         end
     end
     

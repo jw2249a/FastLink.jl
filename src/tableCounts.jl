@@ -100,10 +100,11 @@ function tableCounts_dict(res_matrix::Matrix)
     return (finalindices, finalcounts)
 end
 
+# TODO implement the varnames > 3 version but dict version will do for now.
 function tableCounts(res_matrix,varnames)
-    if length(varnames) > 3
-        return tableCounts_dict(res_matrix)
-    else
-        return tableCounts_bf(res_matrix)
-    end
+    # if length(varnames) > 3
+    return tableCounts_dict(res_matrix) 
+    # else
+    #return tableCounts_bf(res_matrix)
+    #end
 end

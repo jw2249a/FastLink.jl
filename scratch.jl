@@ -28,21 +28,17 @@ if test
                  ntasks=1,
                  pool=true,
                  missingstring=["", "NA"])
-
     dfB=CSV.read(b_fil, DataFrame,
                  ntasks=1,
                  pool=true,
                  missingstring=["", "NA"])
-
 else
-
     dfA=CSV.read(a_fil, DataFrame,
                  limit=N1,
                  ignoreemptyrows=true,
                  ntasks=1,
                  pool=true,
                  missingstring=["", "NA", "NaN", "NULL", "Null"])
-
     dfB=CSV.read(b_fil, DataFrame,
                  limit=N2,
                  ignoreemptyrows=true,
@@ -60,5 +56,5 @@ if test
 end
 
 
-results=fastLink(dfA,dfB,varnames,false)
+results=fastLink(dfA,dfB,varnames,fuzzy=false)
 

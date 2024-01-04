@@ -21,10 +21,10 @@ function skipmissing_equality(x, y)
     return  replace(x .== y, missing=>false)
 end
 
-function emlinkMARmov(patterns::Dict, obs_a::Int,obs_b::Int,varnames::Vector{String},
-                        ranges::Vector{UnitRange{Int64}}; p_m=0.1,iter_max=5000,tol=Float64(1e-05),missingval = [false,true])
-
-    
+"""
+Expectation maximization function. 
+"""
+function emlinkMARmov(patterns::Dict, obs_a::Int,obs_b::Int,varnames::Vector{String}, ranges::Vector{UnitRange{Int64}}; p_m=0.1,iter_max=5000,tol=Float64(1e-05),missingval = [false,true])
     # Initialize count and delta for while loop and break point
     delta = Float64(1)
     count = 1
@@ -39,7 +39,6 @@ function emlinkMARmov(patterns::Dict, obs_a::Int,obs_b::Int,varnames::Vector{Str
     # TODO: add "if statement" λ priors are declared
     psi = 1
     mu = 1
-
     
     ###########################################
     # # TODO: add "if statement" for π priors #

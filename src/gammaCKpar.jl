@@ -1,3 +1,16 @@
+"""
+String comparison of two columns with partial match.
+
+# Arguments
+- `vecA::PooledVector`: Target column of dfB for string comparison.
+- `vecB::PooledVector`: Target column of dfB for string comparison.
+- `results::SubArray`: ResultMatrix object's result_matrix.
+- `array_2Dindex::Function`: ResultMatrix object's array_2Dindex function
+- `dims::Tuple`: ResultMatrix object's dims.
+- `cut_a::Float=0.92`: Upper bound for string distance cutoff.
+- `cut_b::Float=0.88`: Lower bound for string distance (if varnames in partial).
+- `distmethod::String`: String distance method ("jw" Jaro-Winkler (Default), "dl" Damerau-Levenshtein, "jaro" Jaro, "lv" Levenshtein, and "ham" Hamming).
+"""
 function gammaCKpar!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple;
                      cut_a=0.92, cut_b=0.88, distmethod="jw", w=0.1)
     match2 = [true, true]
@@ -6,6 +19,14 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector, results::SubArray, a
     # assign distance function
     if distmethod=="jw"
         distance = JaroWinkler(p=w)
+    elseif distmethod=="dl"
+        distance = DamerauLevenshtein()
+    elseif distmethod=="jaro"
+        distance = Jaro(p=w)
+    elseif distmethod=="lv"
+        distance = Levenshtein()
+    elseif distmethod=="ham"
+        distance = Hamming()
     end
     
     # Threshold vals are 1 - cuts
@@ -55,7 +76,6 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector, results::SubArray, a
             end
         end
     end
-
     # Return nothing
     return nothing
 end

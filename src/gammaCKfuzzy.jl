@@ -1,6 +1,5 @@
 function pool_lookup_table(vec::Vector{UInt32},len::UInt32)
     lookup_by_id = fill(Vector{UInt32}(), len)
-    
     Threads.@threads for pool_index in UInt32(1):len
         lookup_by_id[pool_index] = (1:length(vec))[vec .=== pool_index]
     end
@@ -12,7 +11,7 @@ mutable struct CandidateLetterInfo
     len::UInt8    
     mask::UInt16
 end
-
+"""struct to hold candidate comparisons"""
 mutable struct CandidateScore
     matches::UInt8
     used::UInt16
@@ -94,7 +93,7 @@ function maskify(query::T,len::UInt8;
       [get_query_mask(cl,0x0001 << i,min_match_dist) for cl in UInt8(1):UInt8(16)])
     for (i, c) in enumerate(filter(x-> x>=space_char && x<=max_char, replace(codeunits(query), 0x20 => space_char)))]
 end
-
+"""scores individual letters in based on two candidate scores"""
 function score_letter!(candidate_score::CandidateScore, query_mask::UInt16, candidate_mask::UInt16, query_index::Int)
     whole_mask_result = query_mask & candidate_mask
     check_used_result = xor(whole_mask_result | candidate_score.used, candidate_score.used)
@@ -116,13 +115,26 @@ function calculate_jaro_winkler(score::CandidateScore, query_partial::UInt16; p=
     return jaro + p * l * (1.0 - jaro)
 end
 
-
-
-
 function find_missing_index(d::Dict)::UInt32
     return let x = [i for i in values(filter(x->ismissing(x[1]), d))]; length(x) > 0 ? x[1] : UInt32(0) ; end
 end
 
+"""
+Fuzzy string comparison of two columns. 
+
+Fuzzy JW based on:
+https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operations/
+
+# Arguments
+- `vecA::PooledVector`: Target column of dfB for string comparison.
+- `vecB::PooledVector`: Target column of dfB for string comparison.
+- `results::SubArray`: ResultMatrix object's result_matrix.
+- `array_2Dindex::Function`: ResultMatrix object's array_2Dindex function
+- `dims::Tuple`: ResultMatrix object's dims.
+- `cut_a::Float=0.92`: Upper bound for string distance cutoff.
+- `cut_b::Float=0.88`: Lower bound for string distance (if varnames in partial).
+- `upper::Bool=true`: Whether input string is uppercase.
+"""
 
 function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple;
                        cut_a=0.92, cut_b=0.88,upper=true)
@@ -156,8 +168,8 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray,
         space_char,max_char = 0x60,0x7a
     end
     
-    lenA=UInt32(length(vecA.pool))
-    lenB=UInt32(length(vecB.pool))
+    lenA = UInt32(length(vecA.pool))
+    lenB = UInt32(length(vecB.pool))
 
     lookup_a_by_id=pool_lookup_table(vecA.refs, lenA)
     lookup_b_by_id=pool_lookup_table(vecB.refs, lenB)
@@ -174,7 +186,7 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray,
             continue
         end
         
-        query_len=UInt8(min(ncodeunits(query_name),16))
+        query_len = UInt8(min(ncodeunits(query_name),16))
         query_masks_lookup = maskify(query_name,query_len,space_char=0x40,max_char=max_char)
         query_partial = UInt16(1024 ÷ query_len)
         candidate_scores = deepcopy(base_candidate_scores)

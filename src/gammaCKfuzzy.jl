@@ -234,7 +234,7 @@ https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operatio
 - `upper::Bool=true`: Whether input string is uppercase.
 - `w`: Winkler weight for jw string distance.
 """
-function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple; cut_a=0.92, upper=true,w=0.1)
+function gammaCK2fuzzy!(vecA::PooledVector,vecB::PooledVector, results::SubArray, array_2Dindex::Function, dims::Tuple; cut_a=0.92, upper=true,w=0.1)
 
     # functions that update the results view
     function update_results!(a_ids::Vector{UInt32},

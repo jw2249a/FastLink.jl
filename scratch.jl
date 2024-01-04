@@ -62,13 +62,3 @@ end
 
 results=fastLink(dfA,dfB,varnames,false)
 
-u_b = 1e10
-threshold_match = 0.85
-
-
-
-match_vector=((resultsEM.zeta_j .>= threshold_match .&& resultsEM.patterns_w.weights .<= u_b) |>
-    x->resultsEM.patterns_b[findall(x)] .|> k ->  counts[1][k]) |>
-    recursive_flatten
-
-

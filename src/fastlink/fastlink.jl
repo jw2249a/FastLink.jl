@@ -80,10 +80,9 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     
     counts = tableCounts(view(res.result_matrix,:,:), varnames)
     
-    resultsEM=emlinkMARmov(counts[2], obs_a,obs_b,varnames,res.ranges)
+    resultsEM = emlinkMARmov(counts[2], obs_a,obs_b,varnames,res.ranges)
     
+    matches = getMatches(resultsEM, counts[1], obs_a)
     
-    
-    return resultsEM
-
+    return matches
 end

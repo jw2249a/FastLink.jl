@@ -10,6 +10,7 @@ include("gammaCKpar.jl")
 include("gammaCKfuzzy.jl")
 include("tableCounts.jl")
 include("emlink.jl")
+include("getMatches.jl")
 include("utils/prettyprinting.jl")
 include("fastlink/fastlink.jl")
 

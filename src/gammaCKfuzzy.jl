@@ -219,7 +219,7 @@ end
 
 
 """
-Fuzzy string comparison of two columns (with 2 levels of similarity).
+Fuzzy string comparison of two columns (with 1 level of similarity).
 
 Fuzzy JW based on:
 https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operations/

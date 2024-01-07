@@ -1,5 +1,6 @@
+
 using FastLink
-using Tests
+using Test
 
 @testset "FastLink.jl" begin
     1 === 1

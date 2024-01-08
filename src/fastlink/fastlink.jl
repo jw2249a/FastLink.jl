@@ -1,38 +1,147 @@
-# Ensure that vartypes match each other. if string then both must be strings
-# TODO: implement tighter parameter checks and coercion where needed. 
-function check_var_types(x::DataFrame, y::DataFrame, varnames::Vector{String})
-    xtypes=eltype.(eachcol(select(x, varnames)))
-    ytypes=eltype.(eachcol(select(y, varnames)))
-    # checking if precompile will pick up on this
-    for (ix,iy,iv) in zip(xtypes,ytypes, varnames)
-        if (ix <: Union{Missing,AbstractString}) ⊽ (iy <: Union{Missing,AbstractString})
-            throw("*(VAR $iv)*: dfA type $ix does not match dfB type $ix")
-        end
+
+function check_input_lengths(x, var_length::Int, varname::String)
+    if typeof(x) == "string"
+        x=[x]
     end
-    return xtypes
+    if length(x) == var_length
+        return x
+    elseif length(x) == 1
+        return [x[1] for i in 1:var_length]
+    else
+        @error "Number of inputs for $varname is > 1 and < $var_length (the number of vars declared)."
+    end
 end
 
-# Constructor to check types and variable presence in varnames parameter
-struct fastLinkVars
-    varnames::Vector{String}
-    types::Vector{Type}    
-    function fastLinkVars(dfA::DataFrame, dfB::DataFrame,varnames::Vector{String})
-        varsA=names(dfA)
-        varsB=names(dfB)
-        types = []
-        ## checking that each var is validly defined
-        for i in varnames
-            if all(i .!== varsA)
-                throw("Missing var $i from dfA")
+# Ensure that vartypes match each other. if string then both must be strings
+# TODO: implement tighter parameter checks and coercion where needed. 
+function check_var_types(x::DataFrame, y::DataFrame, varnames::Vector{String},match_method::Vector{String}, partials::Vector{Bool})
+    xtypes=eltype.(eachcol(select(x, varnames)))
+    ytypes=eltype.(eachcol(select(y, varnames)))
+    # if partials is empty then all partial
+    if partials == []
+        partials = [true for i in xtypes]
+    end
+    comparison_levels = Int[]
+    # defaults if no match methods declared
+    if match_method == []
+        for (ix,iy,iv,partial) in zip(xtypes,ytypes, varnames, partials)
+            comparison_level = typeof(ix) <: Union || typeof(iy) <: Union || partial ? 2 : 1
+            if (ix <: Union{Missing,AbstractString}) && (iy <: Union{Missing,AbstractString})
+                match_type="string"
+            elseif (ix <: Union{Missing,Number}) && (iy <: Union{Missing,Number})
+                match_type="numeric"
+            elseif (ix <: Union{Missing,Bool}) && (iy <: Union{Missing,Bool})
+                match_type="bool"
+            else
+                @error "*(VAR $iv)*: dfA type $ix does not match dfB type $ix or type not known for matching"
             end
-            if all(i .!== varsB) 
-                throw("Missing var $i from dfB")
-            end
+            push!(match_method, match_type)
+            push!(comparison_levels, comparison_level)
         end
-        vartypes=check_var_types(dfA,dfB,varnames)
-        new(varnames, vartypes)
-    end  
+    else 
+        for (ix,iy,iv,im,partial) in zip(xtypes,ytypes, varnames,match_method, partials)
+            comparison_level = typeof(ix) <: Union || typeof(iy) <: Union || partial ? 2 : 1
+            push!(comparison_levels, comparison_level)
+        end
+    end
+    return match_method,comparison_levels
 end
+
+
+
+function create_comparison_function(res,
+                                    col::Int,
+                                    match_method::String,
+                                    stringdist::String,
+                                    jw_weight::Float64,
+                                    cut_a::Float64,
+                                    cut_p::Float64,
+                                    upper::Bool,
+                                    partial::Bool,
+                                    fuzzy::Bool,
+                                    comparison_level::Int)
+    
+    match2 = [true,true]
+    match1 = [true,false]
+    missingval = [false,true]
+    
+    
+    if match_method == "string"
+        if fuzzy
+            match_fun = gammaCKfuzzy!(view(res.result_matrix,:,res.ranges[col]),
+                                      res.array_2Dindex,
+                                      res.dims,
+                                      cut_a=cut_a,
+                                      cut_b=cut_p,
+                                      upper=upper,
+                                      w=jw_weight,
+                                      partial=partial,
+                                      match2=reshape(match2,(1,2)),
+                                      match1=reshape(match1,(1,2)),
+                                      missingval=reshape(missingval,(1,2)))
+        else
+            match_fun = gammaCKpar!(view(res.result_matrix,:,res.ranges[col]),
+                                    res.array_2Dindex,
+                                    res.dims,
+                                    distmethod=stringdist,
+                                    cut_a=cut_a,
+                                    cut_b=cut_p,
+                                    partial=partial,
+                                    w=jw_weight,
+                                    match2=match2,
+                                    match1=match1,
+                                    missingval=missingval)
+        end
+            
+    elseif match_method == "exact" || match_method == "bool"
+        if comparison_level == 1
+            match2 = true
+        end
+        match_fun = gammaKpar!(view(res.result_matrix,:,res.ranges[col]),
+                               res.array_2Dindex,
+                               res.dims,
+                               match2,missingval)
+    elseif match_method == "numeric"
+        
+    end
+
+    return match_fun
+end
+
+
+# Constructor to check types and variable presence in varnames parameter
+struct FastLinkVars
+    varnames::Vector{String}
+    types::Vector{String}
+    comparison_funs::Vector{Function}
+
+function FastLinkVars(varnames::Vector{String},
+                      res,
+                      vartypes::Vector{String},
+                      stringdist::Vector{String},
+                      jw_weight::Vector{Float64},
+                      cut_a::Vector{Float64},
+                      cut_p::Vector{Float64},
+                      upper::Vector{Bool},
+                      partial::Vector{Bool},
+                      fuzzy::Vector{Bool},
+                      comparison_levels::Vector{Int}
+                      )
+  
+    comparison_funs=Function[]
+    
+    for i in 1:length(comparison_levels)
+        
+        push!(comparison_funs,
+              create_comparison_function(res,i,vartypes[i],stringdist[i],jw_weight[i],
+                                         cut_a[1],cut_p[i],upper[i],partial[i],fuzzy[i],comparison_levels[i]
+                                         ))
+    end
+    
+    new(varnames, vartypes, comparison_funs)
+end
+end
+
 
 """
 Probabilistic record matching using FastLink data-matching algorithm.
@@ -60,67 +169,68 @@ Algorithm taken from:
 matched_data = fastLink(dfA, dfB, ["firstname", "lastname", "city"])
 """
 function fastLink(dfA::DataFrame, dfB::DataFrame,
-                  varnames::Vector{String},
-                  match_type::Vector{String};
-                  fuzzy::Bool=false,
-                  string_case="upper",
-                  stringdist_method = "jw",
-                  cut_a = 0.92, cut_p = 0.88,
-                  jw_weight = 0.1,
+                  varnames::Vector{String};
+                  match_method=String[],
+                  partials=[true],
+                  fuzzy=[false],
+                  upper_case=true,
+                  stringdist_method = ["jw"],
+                  cut_a = [0.92], cut_p = [0.88],
+                  jw_weight = [0.1],
                   tol_em = 1e-05,
                   threshold_match = 0.85,
                   dedupe_matches = true,
                   verbose = false)
     # Allow missing vals in case one has no missing vals
-    allowmissing!(dfA)
-    allowmissing!(dfB)
 
+    # dims
+    numvars=length(varnames)
     obs_a=nrow(dfA)
     obs_b=nrow(dfB)
+
+    @info "Checking settings for $numvars declared variables."
+    partials = check_input_lengths(partials, numvars, "partials")
+    upper_case = check_input_lengths(upper_case, numvars, "upper_case")
+    fuzzy = check_input_lengths(fuzzy, numvars, "fuzzy")
+    jw_weight = check_input_lengths(jw_weight, numvars, "jw_weight")
+    cut_a = check_input_lengths(cut_a, numvars, "cut_a")
+    cut_p = check_input_lengths(cut_p, numvars, "cut_p")
+    stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
+
     
-    vars=fastLinkVars(dfA, dfB, varnames)
-    comparison_levels=[2 for i in vars.varnames]
+    vartypes, comparison_levels = check_var_types(dfA,dfB,varnames,match_method,partials)
+    
     res=ResultMatrix(comparison_levels, (obs_a,obs_b))
-    # loop over variables and apply the appropriate match method
-    for col in 1:length(vars.varnames)
-        if match_type[col] == "string_partial"
-            if fuzzy
-                gammaCKfuzzy!(dfA[!,vars.varnames[col]],
-                              dfB[!,vars.varnames[col]],
-                              view(res.result_matrix,:,res.ranges[col]),
-                              res.array_2Dindex,
-                              res.dims,cut_a=cut_a,cut_b=cut_p,
-                              upper=string_case == "upper",w=jw_weight)
-            else
-                gammaCKpar!(dfA[!,vars.varnames[col]],
-                            dfB[!,vars.varnames[col]],
-                            view(res.result_matrix,:,res.ranges[col]),
-                            res.array_2Dindex,
-                            res.dims,cut_a=cut_a,cut_b=cut_p,
-                            distmethod=stringdist_method,w=jw_weight)
-            end
-        elseif match_type[col] == "string"
-            gammaCK2par!(dfA[!,vars.varnames[col]],
-                        dfB[!,vars.varnames[col]],
-                        view(res.result_matrix,:,res.ranges[col]),
-                        res.array_2Dindex,
-                        res.dims,cut_a=cut_a,
-                        distmethod=stringdist_method,w=jw_weight)
-        elseif match_type[col] == "exact"
-            gammaKpar!(dfA[!,vars.varnames[col]],
-                       dfB[!,vars.varnames[col]],
-                       view(res.result_matrix,:,res.ranges[col]),
-                       res.array_2Dindex,
-                       res.dims)
+
+    fastlink_settings=FastLinkVars(varnames,res,vartypes,stringdist_method,jw_weight,
+                 cut_a,cut_p,upper_case,partials,fuzzy,comparison_levels)
+
+
+
+    return () -> begin
+
+
+        # allow missing for comparisons
+        allowmissing!(dfA)
+        allowmissing!(dfB)
+
+
+        # iterate through variables and execute function over them
+        for i in eachindex(varnames)
+            @info "Now match $(varnames[i])"
+            fastlink_settings.comparison_funs[i](dfA[!,varnames[i]],dfB[!,varnames[i]])
         end
+
+        @info "Getting table counts"
+        counts = tableCounts(view(res.result_matrix,:,:), varnames)
+
+        @info "Running expectation maximization function"
+        resultsEM = emlinkMARmov(counts[2], obs_a,obs_b,
+                                 varnames,res.ranges,tol=tol_em)
+
+        @info "Retrieving matches"
+        matches = getMatches(resultsEM, counts[1], obs_a,threshold_match=threshold_match)
+        
+        return (resultsEM, matches)
     end
-    
-    counts = tableCounts(view(res.result_matrix,:,:), varnames)
-    
-    resultsEM = emlinkMARmov(counts[2], obs_a,obs_b,
-                             varnames,res.ranges,tol=tol_em)
-    
-    matches = getMatches(resultsEM, counts[1], obs_a,threshold_match=threshold_match)
-    
-    return (resultsEM, matches)
 end

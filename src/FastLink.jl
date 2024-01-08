@@ -1,18 +1,16 @@
 module FastLink
 using DataFrames
-using PooledArrays
-using Distributions
-import StringDistances: Jaro, JaroWinkler, Levenshtein, DamerauLevenshtein
+import PooledArrays: PooledVector
+import Distributions: Dirichlet,rand
 
 
 include("resultMatrix.jl")
-include("gammaCKpar.jl")
-include("gammaCKfuzzy.jl")
-include("gammaKpar.jl")
+include("gammas/Gammas.jl")
+using .Gammas
+
 include("tableCounts.jl")
 include("emlink.jl")
 include("getMatches.jl")
-include("utils/prettyprinting.jl")
 include("fastlink/fastlink.jl")
 
 export(tableCounts)

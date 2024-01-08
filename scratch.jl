@@ -10,7 +10,7 @@ if test
     a_fil="../../rstudio/test_merge/data/dfA.csv"
     b_fil="../../rstudio/test_merge/data/dfB.csv"
     varnames=["firstname","middlename", "lastname","streetname"]
-    else
+else
     a_fil="../../rstudio/test_merge/data/test_a.csv"
     b_fil="../../rstudio/test_merge/data/test_b.csv"
     varnames=["FIRST_NAME", "MIDDLE_NAME", "LAST_NAME", "STREET_NAME"]
@@ -55,6 +55,6 @@ if test
     end
 end
 
+results=fastLink(dfA,dfB,varnames,fuzzy=false)()
 
-results=fastLink(dfA,dfB,varnames,fuzzy=false)
 

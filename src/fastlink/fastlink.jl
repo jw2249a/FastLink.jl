@@ -102,7 +102,7 @@ function create_comparison_function(res,
                                res.array_2Dindex,
                                res.dims,
                                match2,missingval)
-    elseif match_method == "numeric" || match_method=="float"
+    elseif match_method == "numeric" || match_method=="float" || match_method == "int"
         match_fun = gammaNUMCKpar!(
             view(res.result_matrix,:,res.ranges[col]),
             res.array_2Dindex,

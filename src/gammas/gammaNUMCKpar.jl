@@ -1,4 +1,3 @@
-
 # B-tree for difference buckets
 struct IndexValue{T}
     indx::UInt32
@@ -18,10 +17,12 @@ mutable struct Bucket{T}
     obs::Vector{IndexValue{T}}
     left::Bucket{T}
     right::Bucket{T}
+    lock::ReentrantLock
     function Bucket{T}(index, value, offset) where T
         n = new{T}()
         n.range = ValueRange{T}(value, offset)
         n.obs=IndexValue[IndexValue(UInt32(index), value)]
+        n.lock = ReentrantLock()
         return n
     end
 end
@@ -38,20 +39,26 @@ end
 function update_tree(cut_b,BucketImpl)
     return function update_tree!(node::Bucket,index::UInt32, value)
 	if value < node.range.left
+            lock(node.lock)
             if isdefined(node,:left)
+                unlock(node.lock)
                 update_tree!(node.left,index, value)
             else
                 node.left = BucketImpl(index, value, cut_b)
             end
         elseif value > node.range.right
+            lock(node.lock)
             if isdefined(node,:right)
+                unlock(node.lock)
                 update_tree!(node.right,index, value)
             else
                 node.right = BucketImpl(index, value,cut_b)
             end
         else
+            lock(node.lock)
             push!(node.obs, IndexValue(UInt32(index), value))
         end
+        unlock(node.lock)
         return node
     end
 end
@@ -226,40 +233,37 @@ function gammaNUMCKpar!(results::SubArray,array_2Dindex::Function,
             
         end
         
-        BucketImpl=Bucket{ValueType}
-
-        update_tree! = update_tree(cut_b, BucketImpl)
+        
         
         missings_x=UInt32[]
         missings_y=UInt32[]
-
-
-
-
+        missing_lock = ReentrantLock()
         # root of B-tree
+        BucketImpl=Bucket{ValueType}
+        update_tree! = update_tree(cut_b, BucketImpl)
         root = BucketImpl(UInt32(1), vecA[1],cut_b)
 
-        for i in UInt32(2):UInt32(length(vecA))
+        Threads.@threads for i in UInt32(2):UInt32(length(vecA))
             value=vecA[i]
             if ismissing(value)
+                lock(missing_lock)
                 push!(missings_x,UInt32(i))
+                unlock(missing_lock)
             else
                 update_tree!(root,i, value)
             end
         end
-
-
-        for i in UInt32(1):UInt32(length(vecB))
+        Threads.@threads for i in UInt32(1):UInt32(length(vecB))
             value=vecB[i]
             if ismissing(value)
+                lock(missing_lock)
                 push!(missings_y,i)
+                unlock(missing_lock)
             else
                 search_upper!(root,i, value,cut_b)
                 search_lower!(root,i, value,cut_b)
             end
         end
-
-
         # set all to missing where x is missing
         if missings_x != UInt32[]
             Threads.@threads for iy in 1:dims[2]

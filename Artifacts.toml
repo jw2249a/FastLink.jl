@@ -1,0 +1,15 @@
+[dfA]
+git-tree-sha1 = "18dbb96374d0c3cf4264ab69419a59cf3aed232e"
+
+    [[dfA.download]]
+    url = "https://raw.githubusercontent.com/jw2249a/FastLink.jl/main/test/dfA.tar.gz"
+    sha256 = "b3b6f01db6d4ff52320e99c7cb463fa05b7bfe88cdb84fda3956cdd488bb5390"
+
+[dfB]
+git-tree-sha1 = "11d7a35c3f453ae31e76a5d4143da07a70dd69a3"
+
+    [[dfB.download]]
+    url = "https://raw.githubusercontent.com/jw2249a/FastLink.jl/main/test/dfB.tar.gz"
+    sha256 = "c9c242667ee6a1dfe3c824d1053d035e1a7808ea8a4a0427b5cdd8dde3f8c49e"
+
+

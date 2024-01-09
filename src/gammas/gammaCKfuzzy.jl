@@ -224,7 +224,7 @@ function gammaCKfuzzy!(results::SubArray,array_2Dindex::Function,
             end
             
             query_len = UInt8(min(ncodeunits(query_name),16))
-            query_masks_lookup = maskify(query_name,query_len,space_char=0x40,max_char=max_char)
+            query_masks_lookup = maskify(query_name,query_len,space_char=space_char,max_char=max_char)
             query_partial = UInt16(1024 ÷ query_len)
             candidate_scores = deepcopy(base_candidate_scores)
             

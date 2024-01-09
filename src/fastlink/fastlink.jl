@@ -209,8 +209,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     
     res=ResultMatrix(comparison_levels, (obs_a,obs_b))
 
-    fastlink_settings=FastLinkVars(varnames,res,vartypes,stringdist_method,jw_weight,
-                 cut_a,cut_p,upper_case,partials,fuzzy,comparison_levels)
+    fastlink_settings=FastLinkVars(varnames,res,vartypes,stringdist_method,jw_weight,cut_a,cut_p,upper_case,partials,fuzzy,comparison_levels)
 
     
 
@@ -223,7 +222,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
 
         # iterate through variables and execute function over them
         for i in eachindex(varnames)
-            @info "Now match $(varnames[i])"
+            @info "Now matching var $(varnames[i]) using $(match_method[i])"
             fastlink_settings.comparison_funs[i](dfA[!,varnames[i]],dfB[!,varnames[i]])
         end
 

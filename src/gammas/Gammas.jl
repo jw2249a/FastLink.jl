@@ -5,7 +5,7 @@ import StringDistances: Jaro, JaroWinkler, Levenshtein, DamerauLevenshtein
 include("gammaKpar.jl")
 include("gammaCKpar.jl")
 include("gammaCKfuzzy.jl")
-
-export gammaCKpar!, gammaKpar!, gammaCKfuzzy!
+include("gammaNUMCKpar.jl")
+export gammaCKpar!, gammaKpar!, gammaCKfuzzy!, gammaNUMCKpar!
 
 end # Gammas

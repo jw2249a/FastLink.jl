@@ -29,7 +29,11 @@ function check_var_types(x::DataFrame, y::DataFrame, varnames::Vector{String},ma
             if (ix <: Union{Missing,AbstractString}) && (iy <: Union{Missing,AbstractString})
                 match_type="string"
             elseif (ix <: Union{Missing,Number}) && (iy <: Union{Missing,Number})
-                match_type="numeric"
+                if ix <: Union{Missing, Float64} || iy <: Union{Missing,Float64}
+                    match_type="float"
+                else
+                    match_type="numeric"
+                end
             elseif (ix <: Union{Missing,Bool}) && (iy <: Union{Missing,Bool})
                 match_type="bool"
             else
@@ -54,18 +58,16 @@ function create_comparison_function(res,
                                     match_method::String,
                                     stringdist::String,
                                     jw_weight::Float64,
-                                    cut_a::Float64,
-                                    cut_p::Float64,
+                                    cut_a::T,
+                                    cut_p::T,
                                     upper::Bool,
                                     partial::Bool,
                                     fuzzy::Bool,
-                                    comparison_level::Int)
-    
+                                    comparison_level::Int) where T <: Number
     match2 = [true,true]
     match1 = [true,false]
     missingval = [false,true]
-    
-    
+    difference_function = -
     if match_method == "string"
         if fuzzy
             match_fun = gammaCKfuzzy!(view(res.result_matrix,:,res.ranges[col]),
@@ -91,8 +93,7 @@ function create_comparison_function(res,
                                     match2=match2,
                                     match1=match1,
                                     missingval=missingval)
-        end
-            
+        end       
     elseif match_method == "exact" || match_method == "bool"
         if comparison_level == 1
             match2 = true
@@ -101,8 +102,19 @@ function create_comparison_function(res,
                                res.array_2Dindex,
                                res.dims,
                                match2,missingval)
-    elseif match_method == "numeric"
-        
+    elseif match_method == "numeric" || match_method=="float"
+        match_fun = gammaNUMCKpar!(
+            view(res.result_matrix,:,res.ranges[col]),
+            res.array_2Dindex,
+            res.dims,
+            cut_a=cut_a,
+            cut_b=cut_p,
+            partial=partial,
+            match2=match2,
+            match1=match1,
+            missingval=missingval,
+            comparison_function=difference_function,
+            match_method=match_method)
     end
 
     return match_fun
@@ -114,32 +126,27 @@ struct FastLinkVars
     varnames::Vector{String}
     types::Vector{String}
     comparison_funs::Vector{Function}
-
-function FastLinkVars(varnames::Vector{String},
-                      res,
-                      vartypes::Vector{String},
-                      stringdist::Vector{String},
-                      jw_weight::Vector{Float64},
-                      cut_a::Vector{Float64},
-                      cut_p::Vector{Float64},
-                      upper::Vector{Bool},
-                      partial::Vector{Bool},
-                      fuzzy::Vector{Bool},
-                      comparison_levels::Vector{Int}
-                      )
-  
-    comparison_funs=Function[]
-    
-    for i in 1:length(comparison_levels)
-        
-        push!(comparison_funs,
-              create_comparison_function(res,i,vartypes[i],stringdist[i],jw_weight[i],
-                                         cut_a[1],cut_p[i],upper[i],partial[i],fuzzy[i],comparison_levels[i]
-                                         ))
+    function FastLinkVars(varnames::Vector{String},
+                          res::ResultMatrix,
+                          vartypes::Vector{String},
+                          stringdist::Vector{String},
+                          jw_weight::Vector{Float64},
+                          cut_a::Vector{T},
+                          cut_p::Vector{T},
+                          upper::Vector{Bool},
+                          partial::Vector{Bool},
+                          fuzzy::Vector{Bool},
+                          comparison_levels::Vector{Int}
+                          ) where T <: Number
+        comparison_funs=Function[]
+        for i in 1:length(comparison_levels)
+            push!(comparison_funs,
+                  create_comparison_function(res,i,vartypes[i],stringdist[i],jw_weight[i],
+                                             cut_a[1],cut_p[i],upper[i],partial[i],fuzzy[i],comparison_levels[i]
+                                             ))
+        end
+        new(varnames, vartypes, comparison_funs)
     end
-    
-    new(varnames, vartypes, comparison_funs)
-end
 end
 
 
@@ -173,7 +180,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                   match_method=String[],
                   partials=[true],
                   fuzzy=[false],
-                  upper_case=true,
+                  upper_case=[true],
                   stringdist_method = ["jw"],
                   cut_a = [0.92], cut_p = [0.88],
                   jw_weight = [0.1],
@@ -205,10 +212,9 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     fastlink_settings=FastLinkVars(varnames,res,vartypes,stringdist_method,jw_weight,
                  cut_a,cut_p,upper_case,partials,fuzzy,comparison_levels)
 
-
+    
 
     return () -> begin
-
 
         # allow missing for comparisons
         allowmissing!(dfA)

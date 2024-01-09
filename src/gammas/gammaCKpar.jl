@@ -1,6 +1,3 @@
-# match2 = reshape(match2,(1,2))
-#        match1 = reshape(match1,(1,2))
-#        missingval = reshape(missingval,(1,2))
 function score_strings(results::SubArray,array_2Dindex::Function,
                         distmethod::String, partial::Bool, cut_a::Float64,cut_b::Float64, w::Float64,
                         match2::Vector{Bool}, match1::Vector{Bool})

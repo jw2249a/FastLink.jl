@@ -4,12 +4,14 @@ using CSV
 using FastLink
 using PooledArrays
 
+
 # files for performance
 test=true
 if test
     a_fil="../../rstudio/test_merge/data/dfA.csv"
     b_fil="../../rstudio/test_merge/data/dfB.csv"
-    varnames=["firstname","middlename", "lastname","streetname"]
+    varnames=["housenum"]
+    #varnames=["firstname","middlename", "lastname","streetname"]
 else
     a_fil="../../rstudio/test_merge/data/test_a.csv"
     b_fil="../../rstudio/test_merge/data/test_b.csv"
@@ -48,13 +50,15 @@ else
 end
 
 
-if test
-    for var in varnames
-        dfA[!,var] = PooledArray(passmissing(x->uppercase(x)).(dfA[:,var]))
-        dfB[!,var] = PooledArray(passmissing(x->uppercase(x)).(dfB[:,var]))
-    end
-end
+# if test
+#     for var in varnames
+#         dfA[!,var] = PooledArray(passmissing(x->uppercase(x)).(dfA[:,var]))
+#         dfB[!,var] = PooledArray(passmissing(x->uppercase(x)).(dfB[:,var]))
+#     end
+# end
 
-results=fastLink(dfA,dfB,varnames,fuzzy=false)()
+
+
+results=fastLink(dfA,dfB,varnames,match_method=["float"],cut_a=[1],cut_p=[2])()
 
 

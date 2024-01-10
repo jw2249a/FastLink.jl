@@ -1,7 +1,7 @@
 
 using FastLink
 using Test
-import DataFrames: DataFrame
+import DataFrames: DataFrame, nrow
 import CSV
 import Pkg.Artifacts: @artifact_str
 

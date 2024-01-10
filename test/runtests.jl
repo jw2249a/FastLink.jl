@@ -48,6 +48,8 @@ jw_weight = [0.1,0.1,0.1,0.0]
     @test length(results[2]) == 50
     @info "Number of patterns == 26"
     @test length(results[1].patterns_b) == 26
+    @info "Number of counts == (N₁×N₂) "
+    @test sum(results[1].patterns_w.counts) == nrow(dfA) * nrow(dfB)
     @info "Ρ(𝑢) >=.999"
     @test results[1].p_u >= .999
     @info "Ρ(𝑚) <= .0005"

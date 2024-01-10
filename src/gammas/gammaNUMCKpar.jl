@@ -45,6 +45,7 @@ function update_tree(cut_b,BucketImpl)
                 update_tree!(node.left,index, value)
             else
                 node.left = BucketImpl(index, value, cut_b)
+                unlock(node.lock)
             end
         elseif value > node.range.right
             lock(node.lock)
@@ -53,12 +54,14 @@ function update_tree(cut_b,BucketImpl)
                 update_tree!(node.right,index, value)
             else
                 node.right = BucketImpl(index, value,cut_b)
+                unlock(node.lock)
             end
         else
             lock(node.lock)
             push!(node.obs, IndexValue(UInt32(index), value))
+            unlock(node.lock)
         end
-        unlock(node.lock)
+        
         return node
     end
 end

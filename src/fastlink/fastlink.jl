@@ -142,7 +142,7 @@ struct FastLinkVars
         for i in 1:length(comparison_levels)
             push!(comparison_funs,
                   create_comparison_function(res,i,vartypes[i],stringdist[i],jw_weight[i],
-                                             cut_a[1],cut_p[i],upper[i],partial[i],fuzzy[i],comparison_levels[i]
+                                             cut_a[i],cut_p[i],upper[i],partial[i],fuzzy[i],comparison_levels[i]
                                              ))
         end
         new(varnames, vartypes, comparison_funs)
@@ -239,3 +239,73 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
         return (resultsEM, matches)
     end
 end
+
+# version of fast link that i can pass to via named tuples
+function fastLink(dfA::DataFrame, dfB::DataFrame;
+                  varnames=String[],
+                  match_method=String[],
+                  partials=[true],
+                  fuzzy=[false],
+                  upper_case=[true],
+                  stringdist_method = ["jw"],
+                  cut_a = [0.92], cut_p = [0.88],
+                  jw_weight = [0.1],
+                  tol_em = 1e-05,
+                  threshold_match = 0.85,
+                  dedupe_matches = true,
+                  verbose = false)
+    # Allow missing vals in case one has no missing vals
+
+    # dims
+    numvars=length(varnames)
+    obs_a=nrow(dfA)
+    obs_b=nrow(dfB)
+
+    @info "Checking settings for $numvars declared variables."
+    partials = check_input_lengths(partials, numvars, "partials")
+    upper_case = check_input_lengths(upper_case, numvars, "upper_case")
+    fuzzy = check_input_lengths(fuzzy, numvars, "fuzzy")
+    jw_weight = check_input_lengths(jw_weight, numvars, "jw_weight")
+    cut_a = check_input_lengths(cut_a, numvars, "cut_a")
+    cut_p = check_input_lengths(cut_p, numvars, "cut_p")
+    stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
+
+    
+    vartypes, comparison_levels = check_var_types(dfA,dfB,varnames,match_method,partials)
+    
+    res=ResultMatrix(comparison_levels, (obs_a,obs_b))
+
+    fastlink_settings=FastLinkVars(varnames,res,vartypes,stringdist_method,jw_weight,cut_a,cut_p,upper_case,partials,fuzzy,comparison_levels)
+
+    
+
+    return () -> begin
+
+        # allow missing for comparisons
+        allowmissing!(dfA)
+        allowmissing!(dfB)
+
+
+        # iterate through variables and execute function over them
+        for i in eachindex(varnames)
+            @info "Now matching var $(varnames[i]) using $(match_method[i])"
+            fastlink_settings.comparison_funs[i](dfA[!,varnames[i]],dfB[!,varnames[i]])
+        end
+
+        @info "Getting table counts"
+        counts = tableCounts(view(res.result_matrix,:,:), varnames)
+
+        @info "Running expectation maximization function"
+        resultsEM = emlinkMARmov(counts[2], obs_a,obs_b,
+                                 varnames,res.ranges,tol=tol_em)
+
+        @info "Retrieving matches"
+        matches = getMatches(resultsEM, counts[1], obs_a,threshold_match=threshold_match)
+        
+        return (resultsEM, matches)
+    end
+end
+
+
+
+

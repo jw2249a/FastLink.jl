@@ -188,8 +188,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                   threshold_match = 0.85,
                   dedupe_matches = true,
                   verbose = false)
-    # Allow missing vals in case one has no missing vals
-
+    
     # dims
     numvars=length(varnames)
     obs_a=nrow(dfA)
@@ -254,8 +253,12 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
                   threshold_match = 0.85,
                   dedupe_matches = true,
                   verbose = false)
-    # Allow missing vals in case one has no missing vals
 
+    # in case any of them are coerced to symbols
+    varnames = string.(varnames)
+    match_method = string.(match_method)
+    stringdist_method = string.(stringdist_method)
+    
     # dims
     numvars=length(varnames)
     obs_a=nrow(dfA)

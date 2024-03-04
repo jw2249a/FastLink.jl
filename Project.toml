@@ -1,10 +1,11 @@
 name = "FastLink"
 uuid = "11f39cfd-5548-489f-be9a-f4ad0ff6eadc"
 authors = ["Jack R. Williams <contact@jackryanwilliams.com>"]
-version = "0.1.1"
+version = "0.0.2"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 PooledArrays = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
 StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"
@@ -12,8 +13,9 @@ StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"
 [extras]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
 
 [targets]
 test = ["Test", "CSV", "Pkg"]

@@ -1,4 +1,4 @@
-function pool_lookup_table(vec::Vector{UInt32},len::UInt32)
+function pool_lookup_table(vec::Vector{UInt32},len::UInt32)::Vector{Vector{UInt32}}
     lookup_by_id = fill(Vector{UInt32}(), len)
     Threads.@threads for pool_index in UInt32(1):len
         lookup_by_id[pool_index] = (1:length(vec))[vec .=== pool_index]
@@ -107,63 +107,51 @@ function score_letter!(candidate_score::CandidateScore, query_mask::UInt16, cand
     candidate_score.last_match_letter_index |= mask_result
 end
 
-function calculate_jaro_winkler(p::Float64)
-    return (score::CandidateScore, query_partial::UInt16) -> begin
-        transpositions = score.transposition_count > score.matches / 2 ? score.transposition_count - 1 : score.transposition_count
-        partial = ((score.matches * score.len_partial) + (score.matches * query_partial)) / 1024.0
-        jaro = (partial + 1.0 - (transpositions / score.matches)) / 3.0
-        l = trailing_ones(UInt16(score.used_exact & 0x000f))
-        return jaro + p * l * (1.0 - jaro)
-    end
+function calculate_jaro_winkler(score::CandidateScore, query_partial::UInt16, p::Float64)
+    transpositions = score.transposition_count > score.matches / 2 ? score.transposition_count - 1 : score.transposition_count
+    partial = ((score.matches * score.len_partial) + (score.matches * query_partial)) / 1024.0
+    jaro = (partial + 1.0 - (transpositions / score.matches)) / 3.0
+    l = trailing_ones(UInt16(score.used_exact & 0x000f))
+    return jaro + p * l * (1.0 - jaro)
 end
 
 function find_missing_index(d::Dict)::UInt32
     return let x = [i for i in values(filter(x->ismissing(x[1]), d))]; length(x) > 0 ? x[1] : UInt32(0) ; end
 end
 
-
-function update_results(results::SubArray,
-                        array_2Dindex::Function,
-                        vartype::DataType)
-    if vartype == Vector{UInt32}
-        return (a_ids::Vector{UInt32},
-                b_ids::Vector{UInt32},
-                val::Matrix{Bool}) -> begin
-                    results[[array_2Dindex(UInt32(ia),UInt32(ib)) for ia in a_ids for ib in b_ids],:] .= val
-                    return nothing
-                end
-    else
-        return (a_ids::Vector{UInt32},
-                b_ids::UnitRange{UInt32},
-                val::Matrix{Bool}) -> begin
-                    results[[array_2Dindex(UInt32(ia),UInt32(ib)) for ia in a_ids for ib in b_ids],:] .= val
-                    return nothing
-                end
+function update_results!(results::DiBitMatrix, a_ids::Vector{UInt32}, b_ids::Vector{UInt32}, val::UInt8)
+    for ia in a_ids, ib in b_ids
+        results[ia,ib] = val
     end
+    return nothing
+end
+function update_results!(results::DiBitMatrix, a_ids::Vector{UInt32}, b_ids::UnitRange{UInt32}, val::UInt8)
+    for ia in a_ids, ib in b_ids
+        results[ia,ib] = val
+    end
+    return nothing
 end
 
-
-function score_value(partial::Bool,p::Float64,match1::Matrix{Bool},match2::Matrix{Bool},
-                      update_results!::Function,cut_a::Float64,cut_b::Float64;
-                      calculate_jaro_winkler=calculate_jaro_winkler)
-    calculate_jaro_winkler = calculate_jaro_winkler(p)
-    if partial
-        return (score,query_partial, a_ids,lookup_b_by_id,score_i) -> begin
-	    jw = calculate_jaro_winkler(score, query_partial)
-            if jw >= cut_a
-                update_results!(a_ids,lookup_b_by_id[score_i],match2)
-            elseif jw >= cut_b
-                update_results!(a_ids,lookup_b_by_id[score_i],match1)
-            end
-        end
-    else
-        return (score,query_partial, a_ids,lookup_b_by_id,score_i) -> begin
-	    jw = calculate_jaro_winkler(score, query_partial)
-            if jw >= cut_a
-                update_results!(a_ids,lookup_b_by_id[score_i],match2)
-            end
-        end
+function score_value(results::DiBitMatrix,score::CandidateScore,query_partial::UInt16,
+                     a_ids::Vector{UInt32},lookup_b_by_id::Vector{Vector{UInt32}},
+                     score_i::Int, p::Float64,cut_a::Float64,cut_b::Float64)
+    jw = calculate_jaro_winkler(score, query_partial, p)
+    if jw >= cut_a
+        update_results!(results,a_ids,lookup_b_by_id[score_i],match2)
     end
+    return nothing
+end
+
+function score_value2(results::DiBitMatrix,score::CandidateScore, query_partial::UInt16,
+                     a_ids::Vector{UInt32},lookup_b_by_id::Vector{Vector{UInt32}},
+                     score_i::Int, p::Float64,cut_a::Float64,cut_b::Float64)
+    jw = calculate_jaro_winkler(score, query_partial, p)
+    if jw >= cut_a
+        update_results!(results,a_ids,lookup_b_by_id[score_i],match2)
+    elseif jw >= cut_b
+        update_results!(results,a_ids,lookup_b_by_id[score_i],match1)
+    end
+    return nothing
 end
 
 
@@ -184,69 +172,66 @@ https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operatio
 - `upper::Bool=true`: Whether input string is uppercase.
 - `w`: Winkler weight for jw string distance.
     """
-function gammaCKfuzzy!(results::SubArray,array_2Dindex::Function,
-                       dims::Tuple;
-                       cut_a::Float64=0.92,cut_b::Float64=0.88,
-                       upper::Bool=true,w::Float64="jw",partial::Bool=true,
-                       match2::Matrix{Bool}=[true true],match1::Matrix{Bool}=[true false],
-                       missingval::Matrix{Bool}=[false true])
-    # functions that update the results view
-    score_value! = score_value(partial,w,match1,match2,
-                                 update_results(results,array_2Dindex,Vector{UInt32}),
-                                 cut_a,cut_b)
-  
-    update_results! = update_results(results,array_2Dindex,UnitRange{UInt32})
+function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix,dims::Tuple{Int,Int};
+                       cut_a::Float64=0.92,cut_b::Float64=0.88,upper::Bool=true,
+                       w::Float64=0.1,partial::Bool=true)
+
     
-    if upper
+    # functions that update the results view
+    if partial
+        score_value! = score_value2
+    else
+        score_value! = score_value
+    end
+    
+    # change the range of ascii characters dependent on case
+    if upper 
         space_char,max_char = 0x40,0x5a
     else
         space_char,max_char = 0x60,0x7a
     end
-    
-    (vecA::PooledVector,vecB::PooledVector) -> begin
-        
-        lenA = UInt32(length(vecA.pool))
-        lenB = UInt32(length(vecB.pool))
+    # length of unique values
+    lenA = UInt32(length(vecA.pool))
+    lenB = UInt32(length(vecB.pool))
 
-        lookup_a_by_id=pool_lookup_table(vecA.refs, lenA)
-        lookup_b_by_id=pool_lookup_table(vecB.refs, lenB)
+    # vector of pool value indices
+    lookup_a_by_id=pool_lookup_table(vecA.refs, lenA)
+    lookup_b_by_id=pool_lookup_table(vecB.refs, lenB)
+    
+    missingindexA = find_missing_index(vecA.invpool)
+    
+    base_candidate_lookup = build_candidate_lookup(vecB.pool,spaceletter=space_char,lastletter=max_char)
+    base_candidate_scores = build_candidate_scores(vecB.pool)
+    
+    Threads.@threads for (query_name,new_a_id) in collect(vecA.invpool)
+        # pass if query is missing val
+        if new_a_id === missingindexA
+            update_results!(results, lookup_a_by_id[new_a_id],UInt32(1):UInt32(dims[2]),missingval)
+            continue
+        end
         
-        missingindexA = find_missing_index(vecA.invpool)
+        query_len = UInt8(min(ncodeunits(query_name),16))
+        query_masks_lookup = maskify(query_name,query_len,space_char=space_char,max_char=max_char)
+        query_partial = UInt16(1024 ÷ query_len)
+        candidate_scores = deepcopy(base_candidate_scores)
         
-        base_candidate_lookup = build_candidate_lookup(vecB.pool,spaceletter=space_char,lastletter=max_char)
-        base_candidate_scores = build_candidate_scores(vecB.pool)
-        
-        Threads.@threads for (query_name,new_a_id) in collect(vecA.invpool)
-            # pass if query is missing val
-            if new_a_id === missingindexA
-                update_results!(lookup_a_by_id[new_a_id],UInt32(1):UInt32(dims[2]),missingval)
-                continue
-            end
-            
-            query_len = UInt8(min(ncodeunits(query_name),16))
-            query_masks_lookup = maskify(query_name,query_len,space_char=space_char,max_char=max_char)
-            query_partial = UInt16(1024 ÷ query_len)
-            candidate_scores = deepcopy(base_candidate_scores)
-            
-            for (query_index, (letter_index, query_mask_by_candidate_len)) in enumerate(query_masks_lookup)
-                for c_info in base_candidate_lookup[letter_index]
-                    candidate_score = candidate_scores[c_info.name_index]
-                    query_mask = query_mask_by_candidate_len[c_info.len]
-                    score_letter!(candidate_score, query_mask, c_info.mask, query_index)
-                end
-            end
-            
-            a_ids = lookup_a_by_id[new_a_id]
-            for (score_i, score) in enumerate(candidate_scores)
-                if score.len_partial === UInt16(1)                
-                    update_results!(a_ids,lookup_b_by_id[score_i],missingval)
-                    continue
-                end
-                # if present calculate scores
-                score_value!(score,query_partial, a_ids,lookup_b_by_id,score_i)      
+        for (query_index, (letter_index, query_mask_by_candidate_len)) in enumerate(query_masks_lookup)
+            for c_info in base_candidate_lookup[letter_index]
+                candidate_score = candidate_scores[c_info.name_index]
+                query_mask = query_mask_by_candidate_len[c_info.len]
+                score_letter!(candidate_score, query_mask, c_info.mask, query_index)
             end
         end
-
-        return nothing
+        
+        a_ids = lookup_a_by_id[new_a_id]
+        for (score_i, score) in enumerate(candidate_scores)
+            if score.len_partial === UInt16(1)               
+                update_results!(results, a_ids, lookup_b_by_id[score_i], missingval)
+                continue
+            end
+            # if present calculate scores
+            score_value!(results, score,query_partial, a_ids,lookup_b_by_id,score_i, w, cut_a, cut_b)      
+        end
     end
+    return nothing
 end

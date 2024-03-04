@@ -1,7 +1,7 @@
-function score_value2(dist::Float64,indices_x::Vector{R},indices_y::Vector{R}, cut_a::Float64, cut_b::Float64, results::DiBitMatrix) where {R <: Integer}
+function score_value2(dist::Float64,indices_x::Vector{<:Integer},indices_y::Vector{<:Integer}, cut_a::Float64, cut_b::Float64, results::DiBitMatrix)
     # if matches at a threshold, go through result vector and assign new value
     if dist >= cut_a
-        for ix in indices_x,iy in indices_y
+        for ix in indices_x, iy in indices_y
             results[ix,iy] = match2
         end
     elseif dist >= cut_b
@@ -12,7 +12,7 @@ function score_value2(dist::Float64,indices_x::Vector{R},indices_y::Vector{R}, c
     return nothing
 end
 
-function score_value(dist,indices_x::Vector{R},indices_y::Vector{R}, cut_a::Float64, cut_b::Float64, results::DiBitMatrix) where {R <: Integer}
+function score_value(dist::Float64,indices_x::Vector{<:Integer},indices_y::Vector{<:Integer}, cut_a::Float64, cut_b::Float64, results::DiBitMatrix)
     # if matches at a threshold, go through result vector and assign new value
     if dist >= cut_a
         for ix in indices_x,iy in indices_y
@@ -66,7 +66,6 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
     
     # Form match matrices based on differing levels of matches
     Threads.@threads for x in iter_x
-
         indices_x = findall(vecA.refs .=== x)
         for y in  iter_y
             indices_y = findall(vecB.refs .=== y)
@@ -84,6 +83,7 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
             end
         end
     end
+    
     # set all to missing where y is missing
     if !isnothing(missingvals_y)
         missingindices = findall(vecB.refs .== missingvals_y)

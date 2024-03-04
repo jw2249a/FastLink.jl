@@ -4,6 +4,7 @@ import PooledArrays: PooledVector
 import Distributions: Dirichlet,rand
 
 # match constants
+const nonmatch::UInt8 = UInt8(0)
 const match1::UInt8 = UInt8(1)
 const match2::UInt8 = UInt8(2)
 const missingval::UInt8 = UInt8(3)

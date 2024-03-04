@@ -1,180 +1,31 @@
-# B-tree for difference buckets
-struct IndexValue{T}
-    indx::UInt32
-    value::T
+function allow_missing(x::Vector)
+    return copy!(Vector{Union{eltype(x), Missing}}(),x)
 end
 
-struct ValueRange{T}
-    left::T
-    right::T
-    function ValueRange{T}(value, offset; compare! = -) where T
-        new{T}(compare!(value,offset),compare!(value,-offset))
-    end
+# difference categorization functions functions 
+function get_diff1(x::T,y::T,cut_a::T)::UInt8 where T <: Number
+    y - x < cut_a ? match2 : nonmatch
 end
-
-mutable struct Bucket{T}
-    range::ValueRange{T}
-    obs::Vector{IndexValue{T}}
-    left::Bucket{T}
-    right::Bucket{T}
-    lock::ReentrantLock
-    function Bucket{T}(index, value, offset) where T
-        n = new{T}()
-        n.range = ValueRange{T}(value, offset)
-        n.obs=IndexValue[IndexValue(UInt32(index), value)]
-        n.lock = ReentrantLock()
-        return n
-    end
-end
-
-# allows for redefinition of comparison function based on need
-function compare_values(ValueType::DataType,fn::Function)
-    if ValueType <: Float64
-        return (a::Float64,b::Float64) -> fn(a,b)
+function get_diff2(x::T,y::T,cut_a::T, cut_b::T)::UInt8 where T <: Number
+    d = y - x
+    if d <= cut_a
+        return match2
     else
-        return (a::Int64,b::Int64) -> fn(a,b)
-    end
-end
-
-function update_tree(cut_b,BucketImpl)
-    return function update_tree!(node::Bucket,index::UInt32, value)
-	if value < node.range.left
-            lock(node.lock)
-            if isdefined(node,:left)
-                unlock(node.lock)
-                update_tree!(node.left,index, value)
-            else
-                node.left = BucketImpl(index, value, cut_b)
-                unlock(node.lock)
-            end
-        elseif value > node.range.right
-            lock(node.lock)
-            if isdefined(node,:right)
-                unlock(node.lock)
-                update_tree!(node.right,index, value)
-            else
-                node.right = BucketImpl(index, value,cut_b)
-                unlock(node.lock)
-            end
+        if d <= cut_b
+            return match1
         else
-            lock(node.lock)
-            push!(node.obs, IndexValue(UInt32(index), value))
-            unlock(node.lock)
-        end
-        
-        return node
-    end
-end
-
-function score_diff(results::SubArray,array_2Dindex::Function,
-                partial::Bool, cut_a::Float64,cut_b::Float64,
-                    match2::Vector{Bool}, match1::Vector{Bool},
-                    compare!::Function)
-    if partial
-        (node::Bucket, value::Float64,index::UInt32) -> begin
-            for i in node.obs
-                if compare!(value, i.value) <= cut_a
-                    results[array_2Dindex(i.indx,index),:] = match2
-                elseif compare!(value, i.value) <= cut_b
-                    results[array_2Dindex(i.indx,index),:] = match1
-                end
-            end
-            return nothing
-        end
-    else
-        (node::Bucket, value::Float64,index::UInt32) -> begin
-            for i in node.obs
-                if compare!(value, i.value) <= cut_a
-                    results[array_2Dindex(i.indx,index),:] = match2
-                end
-            end
-            return nothing
+            return nonmatch
         end
     end
 end
 
-function score_diff(results::SubArray,array_2Dindex::Function,
-                    partial::Bool, cut_a::Int,cut_b::Int,
-                    match2::Vector{Bool}, match1::Vector{Bool},
-                    compare!::Function)
-    if partial
-        (node::Bucket, value::Int,index::UInt32) -> begin
-            for i in node.obs
-                if abs(compare!(value, i.value)) <= cut_a
-                    results[array_2Dindex(i.indx,index),:] = match2
-                elseif abs(compare!(value, i.value)) <= cut_b
-                    results[array_2Dindex(i.indx,index),:] = match1
-                end
-            end
-            return nothing
-        end
-    else
-        (node::Bucket, value::Int,index::UInt32) -> begin
-            for i in node.obs
-                if abs(compare!(value, i.value)) <= cut_a
-                    results[array_2Dindex(i.indx,index),:] = match2
-                end
-            end
-            return nothing
-        end
-    end
+function get_diff2(x::T, y::Missing,cut_a::T, cut_b::T)::UInt8 where T <: Number
+    return missingval
 end
 
-function search_upper(compare!::Function, score_diff!::Function)
-    return function search_upper!(node::Bucket,index::UInt32, value, cut_b)
-        diff = compare!(value, node.range.right)
-        if diff > cut_b
-            if isdefined(node,:right)
-                search_upper!(node.right,index,value,cut_b)
-            end
-            # if exactly center upper will return it
-        elseif diff <= -cut_b
-            if isdefined(node,:left)
-                search_upper!(node.left,index, value,cut_b)
-            end
-        else
-            score_diff!(node,value,index)
-            if diff > 0
-                if isdefined(node,:right)
-                    search_upper!(node.right,index,value,cut_b)
-                end
-            elseif diff < 0
-                if isdefined(node,:left)
-                    search_upper!(node.left,index, value,cut_b)
-                end
-            end
-        end
-        return nothing
-    end
-end
 
-function search_lower(compare!::Function,score_diff!::Function)
-    return function search_lower!(node::Bucket,index::UInt32, value, cut_b)
-        diff = compare!(value, node.range.left)
-        if diff > cut_b
-            if isdefined(node,:right)
-                search_lower!(node.right,index,value,cut_b)
-            end
-            # does not handle exactly center
-        elseif diff < -cut_b
-            if isdefined(node,:left)
-                search_lower!(node.left,index, value,cut_b)
-            end
-        else
-            score_diff!(node,value,index)
-            if diff > 0
-                if isdefined(node,:right)
-                    search_lower!(node.right,index,value,cut_b)
-                end
-            elseif diff < 0
-                if isdefined(node,:left)
-                    search_lower!(node.left,index, value,cut_b)
-                end
-            end
-        end
-        return nothing
-    end
-end
+fix_id(id::Int, N_a::Int) = id <= N_a ? (id, true) : (id - N_a, false)
+
 
 """
 Numeric comparison of two columns
@@ -182,108 +33,172 @@ Numeric comparison of two columns
 # Arguments
 - `vecA::PooledVector`: Target column of dfB for string comparison.
 - `vecB::PooledVector`: Target column of dfB for string comparison.
-- `results::SubArray`: ResultMatrix object's result_matrix.
-- `array_2Dindex::Function`: ResultMatrix object's array_2Dindex function
-- `dims::Tuple`: ResultMatrix object's dims.
-- `cut_a::Number=1.0`: Lower bound for close string distances.
-- `cut_b::Number=2.0`: Lower bound for partial string distances.
+- `res::DiBitMatrix`: DiBitMatrix.
+- `cut_a::Number=1`: Lower bound for close string distances.
+- `cut_b::Number=2`: Lower bound for partial string distances.
 """
-function gammaNUMCKpar!(results::SubArray,array_2Dindex::Function,
-                        dims::Tuple; cut_a=1,cut_b=2,
-                        partial::Bool=true,match2=[true,true],
-                        match1=[true,false],missingval=[false,true],
-                        comparison_function=-, match_method="int")
-
-
+function gammaNUMCKpar!(vecA::Vector,vecB::Vector,
+                        results::DiBitMatrix;
+                        cut_a=1,cut_b=2,
+                        partial::Bool=true)
     
-    ValueType=match_method=="int" ? Int64 : Float64
-    compare! = compare_values(ValueType, comparison_function)    
-    # define scoring function
-    score_diff! = score_diff(results,
-                             array_2Dindex,
-                             partial,
-                             cut_a,
-                             cut_b,
-                             match2,
-                             match1,
-                             compare!)
+    N_a = length(vecA)
+    N_b = length(vecB)
 
-    search_upper! = search_upper(compare!,score_diff!)
-    search_lower! = search_lower(compare!,score_diff!)
-    
-    # inner fun
-    (vecA,vecB::Vector) -> begin
-        # coerce to float if needed
-        if typeof(vecA) <: Vector{Union{Missing, Float64}} ||
-            typeof(vecB) <: Vector{Union{Missing, Float64}} ||
-            match_method == "float"
-            vecA=convert(Vector{Union{Missing, Float64}},vecA)
-            vecB=convert(Vector{Union{Missing, Float64}},vecB)
-            cut_a=convert(Float64,cut_a)
-            cut_b=convert(Float64,cut_b)
-            ValueType=Float64
-            score_diff! = score_diff(results,
-                                     array_2Dindex,
-                                     partial,
-                                     cut_a,
-                                     cut_b,
-                                     match2,
-                                     match1,
-                                     compare!)
-
-            search_upper! = search_upper(compare!,score_diff!)
-            search_lower! = search_lower(compare!,score_diff!)
-            
-        end
-        
-        
-        
-        missings_x=UInt32[]
-        missings_y=UInt32[]
-        missing_lock = ReentrantLock()
-        # root of B-tree
-        BucketImpl=Bucket{ValueType}
-        update_tree! = update_tree(cut_b, BucketImpl)
-        root = BucketImpl(UInt32(1), vecA[1],cut_b)
-
-        Threads.@threads for i in UInt32(2):UInt32(length(vecA))
-            value=vecA[i]
-            if ismissing(value)
-                lock(missing_lock)
-                push!(missings_x,UInt32(i))
-                unlock(missing_lock)
-            else
-                update_tree!(root,i, value)
-            end
-        end
-        Threads.@threads for i in UInt32(1):UInt32(length(vecB))
-            value=vecB[i]
-            if ismissing(value)
-                lock(missing_lock)
-                push!(missings_y,i)
-                unlock(missing_lock)
-            else
-                search_upper!(root,i, value,cut_b)
-                search_lower!(root,i, value,cut_b)
-            end
-        end
-        # set all to missing where x is missing
-        if missings_x != UInt32[]
-            Threads.@threads for iy in 1:dims[2]
-                for ix in missings_x
-                    results[array_2Dindex(UInt32(ix),UInt32(iy)),:] = missingval
-                end
-            end
-        end
-        # set all to missing where y is missing
-        if missings_y != UInt32[]
-            Threads.@threads for ix in 1:dims[1]
-                for iy in missings_y
-                    results[array_2Dindex(UInt32(ix),UInt32(iy)),:] = missingval
-                end
-            end
-        end 
-
-        return nothing
+    # whether it is two levels or 1
+    if partial
+        get_diff = get_diff2
+    else
+        get_diff = get_diff1
     end
+
+    vecA=allow_missing(vecA)
+    vecB=allow_missing(vecB)
+
+    # coercing cuts in case they are wrong type
+    if (eltype(vecA) <: Union{Integer,Missing}) & (eltype(vecB) <: Union{Integer,Missing})
+        cut_a = Int(cut_a)
+        cut_b = Int(cut_b)
+    else
+        cut_a = Float64(cut_a)
+        cut_b = Float64(cut_b)
+    end
+
+    # get the sorted indices of a large copied array
+    append!(vecA,vecB)
+    vecC=sortperm(vecA)
+    copy!(vecA,vecA[vecC])
+    len=length(vecA)
+    
+    # preallocation of ranges for the threads
+    tids = Threads.nthreads()
+    breaksize= len ÷ (tids-1)
+    starts = (collect(0:(tids-1))) .* breaksize .+ 1
+    ends = starts[:]
+    if last(starts) == len
+        pop!(starts)
+        popfirst!(ends)
+    else
+        ends = append!(starts[:], [len])
+        popfirst!(ends)
+    end
+    tids=length(starts)
+    
+    Threads.@threads for tid in 1:tids    
+        start=starts[tid]
+        s_end=ends[tid]
+
+        under_consideration_value = [vecA[start]]
+        current_id, tableA_bool = fix_id(vecC[start], N_a)
+        under_consideration_id = [current_id]
+        tableA_bools = [tableA_bool]
+        match_values = Vector{UInt8}()
+        
+        for i in 1:(s_end-start)
+            itarg=start+i
+            obs=vecA[itarg]
+            current_id, tableA_bool = fix_id(vecC[itarg], N_a)
+            match_values=get_diff.(under_consideration_value, obs, cut_a, cut_b)
+            if last(match_values) === missingval
+                for ii in itarg:s_end
+                    current_id, tableA_bool = fix_id(vecC[ii], N_a)
+                    if tableA_bool
+                        for icol in 1:N_b
+                            results[current_id, icol] = missingval
+                        end
+                    else
+                        for irow in 1:N_a
+                            results[irow, current_id] = missingval
+                        end
+                    end
+                end
+                under_consideration_id=Int64[]
+                under_consideration_value=Int64[]
+                tableA_bools = Bool[]
+                match_values = Vector{UInt8}()
+                break # break if we run into missing values
+            end
+            removed_values=0
+            for m in eachindex(match_values)
+                if match_values[m] === nonmatch
+                    popfirst!(under_consideration_id)
+                    popfirst!(under_consideration_value)
+                    popfirst!(tableA_bools)
+                    removed_values += 1
+                elseif match_values[m] === match2
+                    # iterate through and break because they all match
+                    for idc in (m-removed_values):(length(match_values)-removed_values) 
+                        if tableA_bool ⊻ tableA_bools[idc]
+                            if tableA_bool
+                                results[current_id,under_consideration_id[idc]] = match2
+                            else
+                                results[under_consideration_id[idc], current_id] = match2
+                            end
+                        end
+                    end
+                    break
+                else
+                    if tableA_bool ⊻ tableA_bools[m-removed_values]
+                        if tableA_bool
+                            results[current_id,under_consideration_id[m-removed_values]] = match1
+                        else
+                            results[under_consideration_id[m-removed_values], current_id] = match1
+                        end
+                    end
+                end
+            end
+            push!(under_consideration_value, obs)
+            push!(under_consideration_id, current_id)
+            push!(tableA_bools,tableA_bool)
+        end
+
+        i = (s_end-start)
+        
+        # clear out the overlap
+        while length(under_consideration_id) > 0
+            i += 1
+            itarg=start+i
+            if itarg === len
+                break
+            end
+            obs=vecA[itarg]
+            current_id, tableA_bool = fix_id(vecC[itarg], N_a)
+            match_values=get_diff.(under_consideration_value, obs, cut_a, cut_b)
+
+            removed_values=0
+            for m in eachindex(match_values)
+                if match_values[m] === nonmatch
+                    popfirst!(under_consideration_id)
+                    popfirst!(under_consideration_value)
+                    popfirst!(tableA_bools)
+                    removed_values += 1
+                elseif match_values[m] === match2
+                    for idc in (m-removed_values):(length(match_values)-removed_values) # iterate through and break because they all match
+                        if tableA_bool ⊻ tableA_bools[idc]
+                            if tableA_bool
+                                results[current_id,under_consideration_id[idc]] = match2
+                            else
+                                results[under_consideration_id[idc], current_id] = match2
+                            end
+                        end
+                    end
+                    break
+                else
+                    if tableA_bool ⊻ tableA_bools[m-removed_values]
+                        if tableA_bool
+                            results[current_id,under_consideration_id[m-removed_values]] = match1
+                        else
+                            results[under_consideration_id[m-removed_values], current_id] = match1
+                        end
+                    end
+                end
+            end
+        end
+        
+    end
+
+    return nothing
 end
+
+
+

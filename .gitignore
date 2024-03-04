@@ -23,5 +23,7 @@ docs/site/
 # environment.
 Manifest.toml
 
-
+actual_scratch.jl
+scratch.jl
+.#*
 \#*

@@ -26,7 +26,6 @@ cut_a = [0.92,0.92,0.92,1]
 cut_p = [0.88,0.88,0.88,2]
 match_method = ["string","string","string","float"]
 partials = [true,true,true,true]
-fuzzy = [false,false,false,false]
 stringdist_method = ["jw","jw","jw","jw"]
 upper_case = [false,false,false,false]
 jw_weight = [0.1,0.1,0.1,0.0]
@@ -37,7 +36,6 @@ jw_weight = [0.1,0.1,0.1,0.0]
                      ("ida", "idb"),
                      match_method=match_method,
                      partials=partials,
-                     fuzzy=fuzzy,
                      upper_case=upper_case,
                      stringdist_method=stringdist_method,
                      cut_a=cut_a,

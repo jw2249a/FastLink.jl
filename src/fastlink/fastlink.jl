@@ -90,16 +90,19 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                   idvar::Tuple{String,String};
                   match_method=String[],
                   partials=[true],
-                  fuzzy=[false],
                   upper_case=[true],
                   stringdist_method = ["jw"],
                   cut_a = [0.92], cut_p = [0.88],
                   jw_weight = [0.1],
+                  address_field = [false],
                   tol_em = 1e-05,
+                  prior_lambda = 0.0,
+                  w_lambda = 0.0,
+                  prior_pi = 0.0,
+                  w_pi = 0.0,
                   threshold_match = 0.85,
                   dedupe_matches = true,
                   verbose = false)
-    
     # dims
     numvars=length(varnames)
     obs_a=nrow(dfA)
@@ -109,10 +112,10 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     @info "Checking settings for $numvars declared variables."
     partials = check_input_lengths(partials, numvars, "partials")
     upper_case = check_input_lengths(upper_case, numvars, "upper_case")
-    fuzzy = check_input_lengths(fuzzy, numvars, "fuzzy")
     jw_weight = check_input_lengths(jw_weight, numvars, "jw_weight")
     cut_a = check_input_lengths(cut_a, numvars, "cut_a")
     cut_p = check_input_lengths(cut_p, numvars, "cut_p")
+    address_field = check_input_lengths(address_field, numvars, "address_field")
     stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
     
     vartypes, comparison_levels = check_var_types(dfA,dfB,varnames,match_method,partials)
@@ -127,28 +130,27 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     # iterate through variables and execute function over them
     for i in eachindex(varnames)
         @info "Now matching var $(varnames[i]) using $(match_method[i])"
-        if match_method[i] == "string"
-            if fuzzy[i]
-                gammaCKfuzzy!(dfA[!,varnames[i]],
-                              dfB[!,varnames[i]],
-                              res[i],
-                              dims,
-                              cut_a=cut_a[i], 
-                              cut_b=cut_p[i],
-                              upper=upper[i],
-                              w=jw_weight[i],
-                              partial=partials[i])
-            else
-                gammaCKpar!(dfA[!,varnames[i]],
-                            dfB[!,varnames[i]],
-                            res[i],
-                            dims,
-                            distmethod=stringdist_method[i],
-                            cut_a=cut_a[i], 
-                            cut_b=cut_p[i],
-                            w=jw_weight[i],
-                            partial=partials[i])
-            end       
+        if match_method[i] == "fuzzy"
+            gammaCKfuzzy!(dfA[!,varnames[i]],
+                          dfB[!,varnames[i]],
+                          res[i],
+                          dims,
+                          cut_a=cut_a[i], 
+                          cut_b=cut_p[i],
+                          upper=upper_case[i],
+                          w=jw_weight[i],
+                          partial=partials[i])
+        elseif match_method[i] == "string"
+            gammaCKpar!(dfA[!,varnames[i]],
+                        dfB[!,varnames[i]],
+                        res[i],
+                        dims,
+                        distmethod=stringdist_method[i],
+                        cut_a=cut_a[i], 
+                        cut_b=cut_p[i],
+                        w=jw_weight[i],
+                        partial=partials[i])
+
         elseif match_method[i] == "exact" || match_method[i] == "bool"
             gammaKpar!(dfA[!,varnames[i]],
                        dfB[!,varnames[i]],
@@ -168,8 +170,10 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
 
     @info "Running expectation maximization function"
     resultsEM = emlinkMARmov(counts, obs_a,obs_b,
-                             varnames,tol=tol_em)
-
+                             varnames,tol=tol_em,
+                             prior_lambda=prior_lambda, w_lambda=w_lambda,
+                             prior_pi=prior_pi, w_pi=w_pi,
+                             address_field=address_field)
     # testing removing uncessessary indices (where no obs exist)
     #remove_no_matched_var_indices(resultsEM)
     # adding uids 
@@ -177,26 +181,31 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     
     @info "Retrieving matches"
     getMatches(resultsEM,threshold_match=threshold_match)
-    
-    return (resultsEM)
- 
+    return (resultsEM) 
 end
 
 # version of fast link that i can pass to via named tuples
 function fastLink(dfA::DataFrame, dfB::DataFrame;
                   varnames=String[],
                   match_method=String[],
+                  idvar=String[],
                   partials=[true],
-                  fuzzy=[false],
                   upper_case=[true],
                   stringdist_method = ["jw"],
                   cut_a = [0.92], cut_p = [0.88],
                   jw_weight = [0.1],
+                  address_field = [false],
                   tol_em = 1e-05,
+                  prior_lambda = 0.0,
+                  w_lambda = 0.0,
+                  prior_pi = 0.0,
+                  w_pi = 0.0,
                   threshold_match = 0.85,
                   dedupe_matches = true,
                   verbose = false)
-   
+
+    # idvar to Tuple
+    idvar = (idvar[1],idvar[2])
     # dims
     numvars=length(varnames)
     obs_a=nrow(dfA)
@@ -206,7 +215,6 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
     @info "Checking settings for $numvars declared variables."
     partials = check_input_lengths(partials, numvars, "partials")
     upper_case = check_input_lengths(upper_case, numvars, "upper_case")
-    fuzzy = check_input_lengths(fuzzy, numvars, "fuzzy")
     jw_weight = check_input_lengths(jw_weight, numvars, "jw_weight")
     cut_a = check_input_lengths(cut_a, numvars, "cut_a")
     cut_p = check_input_lengths(cut_p, numvars, "cut_p")
@@ -224,33 +232,38 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
     # iterate through variables and execute function over them
     for i in eachindex(varnames)
         @info "Now matching var $(varnames[i]) using $(match_method[i])"
-        if match_method[i] == "string"
-            if fuzzy[i]
-                gammaCKfuzzy!(dfA[!,varnames[i]],
-                              dfB[!,varnames[i]],
-                              res[i],
-                              dims,
-                              cut_a=cut_a[i], 
-                              cut_b=cut_p[i],
-                              upper=upper[i],
-                              w=jw_weight[i],
-                              partial=partials[i])
-            else
-                gammaCKpar!(dfA[!,varnames[i]],
-                            dfB[!,varnames[i]],
-                            res[i],
-                            dims,
-                            distmethod=stringdist_method[i],
-                            cut_a=cut_a[i], 
-                            cut_b=cut_p[i],
-                            w=jw_weight[i],
-                            partial=partials[i])
-            end       
+        if match_method[i] == "fuzzy"
+            gammaCKfuzzy!(dfA[!,varnames[i]],
+                          dfB[!,varnames[i]],
+                          res[i],
+                          dims,
+                          cut_a=cut_a[i], 
+                          cut_b=cut_p[i],
+                          upper=upper_case[i],
+                          w=jw_weight[i],
+                          partial=partials[i])
+        elseif match_method[i] == "string"
+            gammaCKpar!(dfA[!,varnames[i]],
+                        dfB[!,varnames[i]],
+                        res[i],
+                        dims,
+                        distmethod=stringdist_method[i],
+                        cut_a=cut_a[i], 
+                        cut_b=cut_p[i],
+                        w=jw_weight[i],
+                        partial=partials[i])
         elseif match_method[i] == "exact" || match_method[i] == "bool"
             gammaKpar!(dfA[!,varnames[i]],
                        dfB[!,varnames[i]],
                        res[i],
                        dims)
+        elseif match_method == "numeric" || match_method=="float" || match_method == "int"
+            gammaNUMCKpar!(dfA[!,varnames[i]],
+                           dfB[!,varnames[i]],
+                           res[i],
+                           cut_a=cut_a[i],
+                           cut_b=cut_p[i],
+                           partial=partials[i])
         end
     end
     @info "Getting table counts"
@@ -258,17 +271,19 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
 
     @info "Running expectation maximization function"
     resultsEM = emlinkMARmov(counts, obs_a,obs_b,
-                             varnames,tol=tol_em)
-
+                             varnames,tol=tol_em,
+                             prior_lambda=prior_lambda, w_lambda=w_lambda,
+                             prior_pi=prior_pi, w_pi=w_pi,
+                             address_field=address_field)
     # testing removing uncessessary indices (where no obs exist)
     #remove_no_matched_var_indices(resultsEM)
     # adding uids 
-    resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(vecA,vecB,resultsEM.indices),))
+    resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),))
+
     
     @info "Retrieving matches"
     getMatches(resultsEM,threshold_match=threshold_match)
-    
-    return (resultsEM)   
+    return (resultsEM) 
 end
 
 

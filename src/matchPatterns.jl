@@ -22,9 +22,9 @@ struct MatchPatterns
     end
 end
 
-function indices_to_uids(vecA::T, vecB::T,
+function indices_to_uids(vecA, vecB,
                                     indices::Vector{Vector{ComparisonIndex}}
-                                 ) where T <: Vector
+                                 ) 
     inds=eachindex(indices)
     paired_ids = [Vector{Tuple}() for _ in inds]
     Threads.@threads for i in inds
@@ -60,7 +60,7 @@ function get_local_patterns(x::Vector{Vector{UInt8}}, N::Int, S::Int)
 
     
     for i in 1:S
-        pattern=zeros(UInt8,4)
+        pattern=zeros(UInt8,N)
         for n in 1:N
             pattern[n]=x[n][i]
         end
@@ -96,7 +96,7 @@ function get_match_patterns(res::Vector{DiBitMatrix})
                 if isnothing(id)
                     push!(matches.patterns,patterns.patterns[i])
                     push!(matches.hashes,patterns.hashes[i])
-                    push!(matches.indices,get_2Dindex.(patterns.indices[i],dimy))
+                    push!(matches.indices,get_2Dindex.(first_loc .+ patterns.indices[i],dimy))
                 else
                     append!(matches.indices[id],get_2Dindex.(first_loc .+ patterns.indices[i],dimy))
                 end

@@ -150,6 +150,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                         cut_b=cut_p[i],
                         w=jw_weight[i],
                         partial=partials[i])
+
         elseif match_method[i] == "exact" || match_method[i] == "bool"
             gammaKpar!(dfA[!,varnames[i]],
                        dfB[!,varnames[i]],
@@ -173,7 +174,6 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                              prior_lambda=prior_lambda, w_lambda=w_lambda,
                              prior_pi=prior_pi, w_pi=w_pi,
                              address_field=address_field)
-    
     # testing removing uncessessary indices (where no obs exist)
     #remove_no_matched_var_indices(resultsEM)
     # adding uids 
@@ -181,9 +181,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
     
     @info "Retrieving matches"
     getMatches(resultsEM,threshold_match=threshold_match)
-    
     return (resultsEM) 
- 
 end
 
 # version of fast link that i can pass to via named tuples
@@ -277,15 +275,14 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
                              prior_lambda=prior_lambda, w_lambda=w_lambda,
                              prior_pi=prior_pi, w_pi=w_pi,
                              address_field=address_field)
-
     # testing removing uncessessary indices (where no obs exist)
     #remove_no_matched_var_indices(resultsEM)
     # adding uids 
     resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),))
+
     
     @info "Retrieving matches"
     getMatches(resultsEM,threshold_match=threshold_match)
-    
     return (resultsEM) 
 end
 

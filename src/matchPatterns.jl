@@ -24,23 +24,22 @@ end
 
 function indices_to_uids(vecA, vecB,
                                     indices::Vector{Vector{ComparisonIndex}}
-                                 ) 
+                         )
+    batch_size=500
     inds=eachindex(indices)
     paired_ids = [Vector{Tuple}() for _ in inds]
     Threads.@threads for i in inds
         len=length(indices[i])
         lk = ReentrantLock()
-        Threads.@threads for first_val in 1:500:len
+        Threads.@threads for first_val in 1:batch_size:len
             local_paired_ids=Vector{Tuple}()
-            last_val = first_val + min(len-first_val,500-first_val)
+            last_val = min(first_val + batch_size - 1, len)
             for ii in first_val:last_val
                 push!(local_paired_ids,(vecA[indices[i][ii].row],vecB[indices[i][ii].col]))
             end
-
             lock(lk) do
                 append!(paired_ids[i],local_paired_ids)
             end
-            
         end
     end
     return paired_ids

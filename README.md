@@ -6,9 +6,9 @@ The purpose of FastLink.jl is to bring a fast record linkage package to the juli
 
 [![Run tests](https://github.com/jw2249a/FastLink.jl/actions/workflows/test.yml/badge.svg)](https://github.com/jw2249a/FastLink.jl/actions/workflows/test.yml)
 
-
-Using the fastLink function
 ___________________________
+### Using the fastLink function
+
 
 The basic arguments for the `fastLink` function to run are
 
@@ -57,8 +57,9 @@ The optional parameters are.
 - `dedupe_matches`: Whether to dedupe the matches within the dataset. Default `[0.85]`.
 
 
-`fastLink`'s output
 __________________
+### `fastLink`'s output
+
 - `NamedTuple` with these vars
 - `indices`
 

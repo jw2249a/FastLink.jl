@@ -65,21 +65,27 @@ Algorithm taken from:
 - Enamorado, Ted, Benjamin Fifield, and Kosuke Imai. 2017. fastLink: Fast Probabilistic Record Linkage with Missing Data. Version 0.6.
 
 # Arguments
-- `dfA::DataFrame`: The first dataset to be matched.
-- `dfB::DataFrame`: The second dataset to be matched.
-- `varnames::Vector{String}`: Variable names to be used in the matching.
-- `fuzzy::Bool`: Whether to match using a fuzzy string distance for speed (default false).
-- `string_case::String`: "upper" or "lower" (only if fuzzy)
-- `stringdist_method::String`: String distance method ("jw" Jaro-Winkler (Default), "dl" Damerau-Levenshtein, "jaro" Jaro, "lv" Levenshtein, and "ham" Hamming).
-- `cut_a::Float`: Upper bound for string distance cutoff.
-- `cut_p::Float`: Lower bound for string distance (if varnames in partial).
+- `dfA::DataFrame`: Table of records to be matched.
+- `dfB::DataFrame`: Table of records to be matched.
+- `varnames::Vector{String}`: A vector that contains the variable names present in both tables.
+- `idvar::Tuple{String,String}`: Tuple of unique ids for records in both tables (should differ from each other). Should be formatted as so that the arguments are ordered in ("dfa","dfb") order.
+- `term_freq_adjustment::Vector{Bool}`: Determines whether you want the term frequencies for each comparision for a given variable. Note: does not adjust match weight.
+- `match_method::Vector{String}`: Specifies the matching method you would like to do. Match methods supported are "string","exact","fuzzy" (jaro-winkler strings only),"numeric","float",and "int")
+- `partials::Vector{Bool}` Specifies whether you want to do 2 (true) or 1 (false) comparison levels for a given variable.
+- `upper_case::Vector{Bool}` that specifies whether a strings column value is upper or lower (only if `match_method` for column is "fuzzy").
+- `stringdist_method::Vector{String}`: String distance method ("jw" Jaro-Winkler (Default), "dl" Damerau-Levenshtein, "jaro" Jaro, "lv" Levenshtein, and "ham" Hamming).
+- `cut_a::Float`: First lower bound for string distance cutoff.
+- `cut_p::Float`: Second lower bound for string distance (if varnames in partial).
 - `jw_weight`: Winkler weight for jw string distance.
-- `tol_em`: Convergence tolerance for the EM Algorithm. (default 1e-04)
-- `threshold_match`: Lower bound for the posterior probability that will act as a cutoff for matches.
-- `dedupe_matches`: Whether to dedupe the matches within the dataset.
+- `address_field::Vector{Bool}`: Specifies whether a field is an address field.
+
 
 # Returns
-- `MatchedData::DataFrame`: The resulting DataFrame after matching.
+- NamedTuple with these vars
+indices        iter_converge  matched_ids    obs_a
+obs_b          p_m            p_u            patterns_b
+patterns_w     pgamma_jm      pgamma_ju      pgamma_km
+pgamma_ku      tf_adj_table   varnames       zeta_j
 
 # Examples
 ```julia
@@ -102,8 +108,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame,
                   prior_pi = 0.0,
                   w_pi = 0.0,
                   threshold_match = 0.85,
-                  dedupe_matches = true,
-                  verbose = false)
+                  dedupe_matches = true)
     # dims
     numvars=length(varnames)
     obs_a=nrow(dfA)
@@ -254,8 +259,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
                   prior_pi = 0.0,
                   w_pi = 0.0,
                   threshold_match = 0.85,
-                  dedupe_matches = true,
-                  verbose = false)
+                  dedupe_matches = true)
 
     # idvar to Tuple
     idvar = (idvar[1],idvar[2])

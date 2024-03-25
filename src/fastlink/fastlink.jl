@@ -242,6 +242,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
                   match_method=String[],
                   idvar=String[],
                   partials=[true],
+                  term_freq_adjustment=[false],
                   upper_case=[true],
                   stringdist_method = ["jw"],
                   cut_a = [0.92], cut_p = [0.88],
@@ -271,44 +272,87 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
     cut_a = check_input_lengths(cut_a, numvars, "cut_a")
     cut_p = check_input_lengths(cut_p, numvars, "cut_p")
     stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
+    term_freq_adjustment = check_input_lengths(term_freq_adjustment, numvars, "term_freq_adjustment")
+    stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
     
     vartypes, comparison_levels = check_var_types(dfA,dfB,varnames,match_method,partials)
-    
+
+    # results table
     res = [DiBitMatrix(obs_a,obs_b) for _ in varnames]
+
+    # term frequency tables
+    tf_table_x = [ones(Float16,dims[1]) for _ in varnames]
+    tf_table_y = [ones(Float16,dims[2]) for _ in varnames]
     
     # allow missing for comparisons
     allowmissing!(dfA)
     allowmissing!(dfB)
 
     
-    # iterate through variables and execute function over them
     for i in eachindex(varnames)
         @info "Now matching var $(varnames[i]) using $(match_method[i])"
         if match_method[i] == "fuzzy"
-            gammaCKfuzzy!(dfA[!,varnames[i]],
-                          dfB[!,varnames[i]],
-                          res[i],
-                          dims,
-                          cut_a=cut_a[i], 
-                          cut_b=cut_p[i],
-                          upper=upper_case[i],
-                          w=jw_weight[i],
-                          partial=partials[i])
+            if term_freq_adjustment[i]
+                gammaCKfuzzy!(dfA[!,varnames[i]],
+                              dfB[!,varnames[i]],
+                              res[i],
+                              dims,
+                              view(tf_table_x[i],:),
+                              view(tf_table_y[i],:),
+                              cut_a=cut_a[i], 
+                              cut_b=cut_p[i],
+                              upper=upper_case[i],
+                              w=jw_weight[i],
+                              partial=partials[i])
+            else
+                gammaCKfuzzy!(dfA[!,varnames[i]],
+                              dfB[!,varnames[i]],
+                              res[i],
+                              dims,
+                              cut_a=cut_a[i], 
+                              cut_b=cut_p[i],
+                              upper=upper_case[i],
+                              w=jw_weight[i],
+                              partial=partials[i])
+            end
         elseif match_method[i] == "string"
-            gammaCKpar!(dfA[!,varnames[i]],
-                        dfB[!,varnames[i]],
-                        res[i],
-                        dims,
-                        distmethod=stringdist_method[i],
-                        cut_a=cut_a[i], 
-                        cut_b=cut_p[i],
-                        w=jw_weight[i],
-                        partial=partials[i])
+            if term_freq_adjustment[i]
+                gammaCKpar!(dfA[!,varnames[i]],
+                            dfB[!,varnames[i]],
+                            res[i],
+                            dims,
+                            view(tf_table_x[i],:),
+                            view(tf_table_y[i],:),
+                            distmethod=stringdist_method[i],
+                            cut_a=cut_a[i], 
+                            cut_b=cut_p[i],
+                            w=jw_weight[i],
+                            partial=partials[i])
+            else
+                gammaCKpar!(dfA[!,varnames[i]],
+                            dfB[!,varnames[i]],
+                            res[i],
+                            dims,
+                            distmethod=stringdist_method[i],
+                            cut_a=cut_a[i], 
+                            cut_b=cut_p[i],
+                            w=jw_weight[i],
+                            partial=partials[i])
+            end
         elseif match_method[i] == "exact" || match_method[i] == "bool"
-            gammaKpar!(dfA[!,varnames[i]],
-                       dfB[!,varnames[i]],
-                       res[i],
-                       dims)
+            if term_freq_adjustment[i]
+                gammaKpar!(dfA[!,varnames[i]],
+                           dfB[!,varnames[i]],
+                           res[i],
+                           dims,
+                           view(tf_table_x[i],:),
+                           view(tf_table_y[i],:))
+            else
+                gammaKpar!(dfA[!,varnames[i]],
+                           dfB[!,varnames[i]],
+                           res[i],
+                           dims)
+            end
         elseif match_method == "numeric" || match_method=="float" || match_method == "int"
             gammaNUMCKpar!(dfA[!,varnames[i]],
                            dfB[!,varnames[i]],
@@ -329,8 +373,16 @@ function fastLink(dfA::DataFrame, dfB::DataFrame;
                              address_field=address_field)
     # testing removing uncessessary indices (where no obs exist)
     #remove_no_matched_var_indices(resultsEM)
-    # adding uids 
-    resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),))
+    # adding uids
+
+    if any(term_freq_adjustment)
+        resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),
+                                      tf_adj_table = tf_adj_table(resultsEM,varnames,tf_table_x,tf_table_y)))        
+        
+    else
+        resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),))        
+    end
+    
 
     
     @info "Retrieving matches"

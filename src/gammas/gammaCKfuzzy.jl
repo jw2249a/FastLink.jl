@@ -235,3 +235,88 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatri
     end
     return nothing
 end
+
+
+function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix,dims::Tuple{Int,Int},
+                       tf_table_x::SubArray{Float16},
+                       tf_table_y::SubArray{Float16};
+                       cut_a::Float64=0.92,cut_b::Float64=0.88,upper::Bool=true,
+                       w::Float64=0.1,partial::Bool=true)
+
+    
+    # functions that update the results view
+    if partial
+        score_value! = score_value2
+    else
+        score_value! = score_value
+    end
+    
+    # change the range of ascii characters dependent on case
+    if upper 
+        space_char,max_char = 0x40,0x5a
+    else
+        space_char,max_char = 0x60,0x7a
+    end
+    # length of unique values
+    lenA = UInt32(length(vecA.pool))
+    lenB = UInt32(length(vecB.pool))
+
+    # vector of pool value indices
+    lookup_a_by_id=pool_lookup_table(vecA.refs, lenA)
+    lookup_b_by_id=pool_lookup_table(vecB.refs, lenB)
+
+    dims=(length(vecA),length(vecB))
+
+    # term frequency for x
+    Threads.@threads for i in lookup_a_by_id
+        tf_val=length(i)/dims[1]
+        for ii in i
+            tf_table_x[ii] = tf_val
+        end
+    end
+    
+    # term frequency for y
+    Threads.@threads for i in lookup_b_by_id
+        tf_val=length(i)/dims[2]
+        for ii in i
+            tf_table_y[ii] = tf_val
+        end
+    end
+    
+    missingindexA = find_missing_index(vecA.invpool)
+    
+    base_candidate_lookup = build_candidate_lookup(vecB.pool,spaceletter=space_char,lastletter=max_char)
+    base_candidate_scores = build_candidate_scores(vecB.pool)
+    
+    Threads.@threads for (query_name,new_a_id) in collect(vecA.invpool)
+        # pass if query is missing val
+        if new_a_id === missingindexA
+            update_results!(results, lookup_a_by_id[new_a_id],UInt32(1):UInt32(dims[2]),missingval)
+            continue
+        end
+        
+        query_len = UInt8(min(ncodeunits(query_name),16))
+        query_masks_lookup = maskify(query_name,query_len,space_char=space_char,max_char=max_char)
+        query_partial = UInt16(1024 ÷ query_len)
+        candidate_scores = deepcopy(base_candidate_scores)
+        
+        for (query_index, (letter_index, query_mask_by_candidate_len)) in enumerate(query_masks_lookup)
+            for c_info in base_candidate_lookup[letter_index]
+                candidate_score = candidate_scores[c_info.name_index]
+                query_mask = query_mask_by_candidate_len[c_info.len]
+                score_letter!(candidate_score, query_mask, c_info.mask, query_index)
+            end
+        end
+        
+        a_ids = lookup_a_by_id[new_a_id]
+        for (score_i, score) in enumerate(candidate_scores)
+            if score.len_partial === UInt16(1)               
+                update_results!(results, a_ids, lookup_b_by_id[score_i], missingval)
+                continue
+            end
+            # if present calculate scores
+            score_value!(results, score,query_partial, a_ids,lookup_b_by_id,score_i, w, cut_a, cut_b)      
+        end
+    end
+    return nothing
+end

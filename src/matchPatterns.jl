@@ -23,7 +23,7 @@ struct MatchPatterns
 end
 
 function indices_to_uids(vecA, vecB,
-                                    indices::Vector{Vector{ComparisonIndex}}
+                         indices::Vector{Vector{ComparisonIndex}}
                          )
     batch_size=500
     inds=eachindex(indices)
@@ -57,7 +57,6 @@ function get_local_patterns(x::Vector{Vector{UInt8}}, N::Int, S::Int)
     hashes=Vector{UInt64}()
     indices=Vector{Vector{UInt16}}()
 
-    
     for i in 1:S
         pattern=zeros(UInt8,N)
         for n in 1:N

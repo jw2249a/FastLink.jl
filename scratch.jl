@@ -1,5 +1,6 @@
 using Pkg
-#Pkg.develop(path=".")
+Pkg.develop(path=".")
+Pkg.precompile()
 using DataFrames
 using BenchmarkTools
 using CSV
@@ -26,6 +27,8 @@ dfB=CSV.read("$(b_fil)/dfB.csv", DataFrame,
              ntasks=1,
              pool=true,
              missingstring=["", "NA"])
+dfA.id = hash.(eachrow(dfA))
+dfB.id2 = hash.(eachrow(dfB))
 
 
 for var in varnames[1:3]
@@ -33,16 +36,12 @@ for var in varnames[1:3]
     dfB[!,var] = PooledArray(passmissing(x->uppercase(x)).(dfB[:,var]))
 end
 
-config = fastLink(dfA,dfB,varnames,match_method=match_method,cut_a=cut_a,cut_p=cut_p,
+results=fastLink(dfA,dfB,varnames,("id","id2"),
+                 match_method=match_method,
+                 term_freq_adjustment=[true],
+                 cut_a=cut_a,cut_p=cut_p,
                  threshold_match = 0.85)
 
-dump(config.fastlink_settings.comparison_funs[4])
 
-results=fastLink(dfA,dfB,varnames,match_method=match_method,cut_a=cut_a,cut_p=cut_p,
-                 threshold_match = 0.85)()
-
-x=results[1].patterns_w
-x[findall(ismissing.(x.gamma_4) .== false .&& x.gamma_4 .== 1),:]
-x[findall(ismissing.(x.gamma_4)),:]
 
 

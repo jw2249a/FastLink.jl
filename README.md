@@ -22,7 +22,7 @@ The basic arguments for the `fastLink` function to run are
 
 In addition, there are a number of optional parameters to assist with record linkage. For each of the parameters, you can either specify each variables value or specify a vector with 1 value to apply it to all relevant variables. If irrelevant, like `stringdist_method` for a numeric match method, it will be ignored. 
 
-The optional parameters are. 
+The optional parameters are
 
 - `term_freq_adjustment`: A `Vector{Bool}` that determines whether you want the term frequencies for each comparision for a given variable. Note: does not adjust match weight. Default value `[false]`.
 
@@ -36,7 +36,7 @@ The optional parameters are.
 
 - `cut_a`  A `Vector{Float}` that specifies the first lower bound for string distance cutoff for each comparison. Default `[0.92]`.
 
-- `cut_p::Float`: A `Vector{Float}` that specifies the second lower bound for string distance (if varnames in partial) for each comparison. Default `[0.88]`.
+- `cut_p`: A `Vector{Float}` that specifies the second lower bound for string distance (if varnames in partial) for each comparison. Default `[0.88]`.
 
 - `jw_weight`: A `Vector{Float}` that specifies the Winkler weight for jw string distance for each comparison. Default `[0.1]`.
 
@@ -60,38 +60,41 @@ The optional parameters are.
 __________________
 ### `fastLink`'s output
 
-- `NamedTuple` with these vars
-- `indices`
+A `NamedTuple` with these vars:
 
-- `iter_converge`
+- `indices` - a vector with indices in `dfA` and `dfB` that are in each pattern group (see `patterns_w` or `patterns_b`)
 
-- `matched_ids`
+- `matched_ids` - same as `indices` but using `idvars` from input parameters
 
-- `obs_a`
+- `iter_converge` - number of iterations for expectation maximization algorithm to converge. 
 
-- `obs_b`
+- `obs_a` - observations in `dfA`
 
-- `p_m`
+- `obs_b` - observations in `dfB`
 
-- `p_u`
+- `p_m` - posterior match probability
 
-- `patterns_b`
+- `p_u` - posterior **not** match probability
 
-- `patterns_w`
+- `patterns_w` - a `DataFrame` of:
+  - `gamma_` - An `Int64` with the gamma values for each variable (similar to `patterns_b`)
+  - `counts` - An `Int64` with counts for each agreement pattern
+  - `weights` - An `Int64` with partial match weights for each agreement pattern
+  - `p_gamma_jm` - A `Float64` that has the posterior probability that a pair matches for each agreement pattern
+  - `p_gamma_ju` - A `Float64` that has the posterior probability that a pair **does not** match for each agreement pattern
+  - `is_match` - A `Bool` that specifies whether the given pattern is above the input parameter `threshold_match`
 
-- `pgamma_jm`
+- `patterns_b` - vector of all patterns observed. each pattern as a scored number for each variable (0 nonmatch, 1 partial, 2 exact, 3 missing)
 
-- `pgamma_ju`
+- `pgamma_km` - A `Vector{Vector{Float64}}` with posterior probababilities for each variable in the EM algorithm. Ordered (0,1,2).
 
-- `pgamma_km`
+- `pgamma_ku` - A `Vector{Vector{Float64}}` with posterior probababilities for each variable in the EM algorithm. Ordered (2,1,0).
 
-- `pgamma_ku`
+- `tf_adj_table` - A `Vector{DataFrame}` that has a DataFrame for each match pattern and a row in each DataFrame for each comparison appended with the letter of their corresponding dataset.
 
-- `tf_adj_table`
+- `varnames` - A `Vector{String}` of the input variable names
 
-- `varnames`
-
-- `zeta_j`
+- `zeta_j` - A `Vector{Float64}` with the posterior match probabilities for each agreement pattern. 
 
 # Examples
 ```julia

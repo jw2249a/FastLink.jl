@@ -22,7 +22,7 @@ end
 # applies term frequency adjustments to table
 function tf_adj_table(resultsEM::NamedTuple,varnames::Vector{String},tf_table_x::Vector{Vector{Float16}},tf_table_y::Vector{Vector{Float16}})
     tf_vec = [DataFrame() for _ in eachindex(resultsEM.indices)]
-    new_names=vcat("tf_" .* varnames .* "_x", "tf_" .*  varnames .* "_y")
+    new_names=vcat("tf_" .* varnames .* "_a", "tf_" .*  varnames .* "_b")
     for i in eachindex(resultsEM.indices)
         result_len=length(resultsEM.indices[i])
         tf_results=DataFrame(ones(Float16,(result_len, 2*length(varnames))),new_names)

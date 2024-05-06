@@ -37,11 +37,10 @@ Numeric comparison of two columns
 - `cut_a::Number=1`: Lower bound for close string distances.
 - `cut_b::Number=2`: Lower bound for partial string distances.
 """
-function gammaNUMCKpar!(vecA, vecB,
+function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
                         results::DiBitMatrix;
                         cut_a=1,cut_b=2,
                         partial::Bool=true)
-    
     N_a = length(vecA)
     N_b = length(vecB)
 
@@ -72,16 +71,21 @@ function gammaNUMCKpar!(vecA, vecB,
     
     # preallocation of ranges for the threads
     tids = Threads.nthreads()
-    breaksize= len ÷ (tids-1)
-    starts = (collect(0:(tids-1))) .* breaksize .+ 1
-    ends = starts[:]
-    if last(starts) == len
-        pop!(starts)
-        popfirst!(ends)
-    else
-        ends = append!(starts[:], [len])
-        popfirst!(ends)
+    starts = [1]
+    ends = [len]
+    if tids > 1
+        breaksize = len ÷ (tids-1)
+        starts = (collect(0:(tids-1))) .* breaksize .+ 1
+        ends = starts[:]
+        if last(starts) == len
+            pop!(starts)
+            popfirst!(ends)
+        else
+            ends = append!(starts[:], [len])
+            popfirst!(ends)
+        end
     end
+    
     tids=length(starts)
     
     Threads.@threads for tid in 1:tids    

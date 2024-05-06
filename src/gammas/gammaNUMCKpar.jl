@@ -71,7 +71,7 @@ function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
     
     # preallocation of ranges for the threads
     tids = Threads.nthreads()
-    starts = [0]
+    starts = [1]
     ends = [len]
     if tids > 1
         breaksize = len ÷ (tids-1)

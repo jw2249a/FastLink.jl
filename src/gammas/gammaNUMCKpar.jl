@@ -41,7 +41,6 @@ function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
                         results::DiBitMatrix;
                         cut_a=1,cut_b=2,
                         partial::Bool=true)
-    @info "running gammanumckpar"
     N_a = length(vecA)
     N_b = length(vecB)
 
@@ -72,16 +71,21 @@ function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
     
     # preallocation of ranges for the threads
     tids = Threads.nthreads()
-    breaksize= len ÷ (tids-1)
-    starts = (collect(0:(tids-1))) .* breaksize .+ 1
-    ends = starts[:]
-    if last(starts) == len
-        pop!(starts)
-        popfirst!(ends)
-    else
-        ends = append!(starts[:], [len])
-        popfirst!(ends)
+    starts = [0]
+    ends = [len]
+    if tids > 1
+        breaksize = len ÷ (tids-1)
+        starts = (collect(0:(tids-1))) .* breaksize .+ 1
+        ends = starts[:]
+        if last(starts) == len
+            pop!(starts)
+            popfirst!(ends)
+        else
+            ends = append!(starts[:], [len])
+            popfirst!(ends)
+        end
     end
+    
     tids=length(starts)
     
     Threads.@threads for tid in 1:tids    
@@ -196,7 +200,7 @@ function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
         end
         
     end
-    @info "finish gammanumckpar"
+
     return nothing
 end
 

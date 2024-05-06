@@ -37,7 +37,6 @@ Numeric comparison of two columns
 - `cut_a::Number=1`: Lower bound for close string distances.
 - `cut_b::Number=2`: Lower bound for partial string distances.
 """
-
 function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
                         results::DiBitMatrix;
                         cut_a=1,cut_b=2,
@@ -56,6 +55,14 @@ function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
     vecA=allow_missing(vecA)
     vecB=allow_missing(vecB)
 
+    # coercing cuts in case they are wrong type
+    if (eltype(vecA) <: Union{Integer,Missing}) & (eltype(vecB) <: Union{Integer,Missing})
+        cut_a = Int(cut_a)
+        cut_b = Int(cut_b)
+    else
+        cut_a = Float64(cut_a)
+        cut_b = Float64(cut_b)
+    end
 
     # get the sorted indices of a large copied array
     append!(vecA,vecB)
@@ -189,7 +196,7 @@ function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
         end
         
     end
-
+    @info "finish gammanumckpar"
     return nothing
 end
 

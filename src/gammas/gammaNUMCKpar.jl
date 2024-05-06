@@ -37,11 +37,11 @@ Numeric comparison of two columns
 - `cut_a::Number=1`: Lower bound for close string distances.
 - `cut_b::Number=2`: Lower bound for partial string distances.
 """
-function gammaNUMCKpar!(vecA, vecB,
+function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
                         results::DiBitMatrix;
                         cut_a=1,cut_b=2,
                         partial::Bool=true)
-    
+    @info "running gammanumckpar"
     N_a = length(vecA)
     N_b = length(vecB)
 

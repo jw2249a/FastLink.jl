@@ -1,0 +1,26 @@
+{
+    "link_type": "link_only",
+    "idvar": ["id", "id2"],
+    "comparisons": {
+        "name": "total",
+        "prior_lambda": 0.000001,
+        "w_lambda": 0.5,
+        "threshold_match": 0.88,
+        "variables": [
+            {"varname": "firstname", "method": "fuzzy", "partial": true, "cut_a": 0.92, "cut_b": 0.88, "upper": true, "tf_adjust": true, "w": 0.1},
+            {"varname": "middlename", "method": "exact"},
+            {"varname": "lastname", "method": "jarowinkler"},
+            {
+                "comparisons": {
+                    "name": "address",
+                    "threshold_match": 0.92,
+                    "variables": [
+                        {"varname": "housenum", "method": "exact", "tf_adjust": true, "tf_adjustment_weight":0.5, "tf_minimum_u_value": 0.001},
+                        {"varname": "streetname", "method": "jarowinkler", "w": 0.1, "tf_adjust": true, "tf_adjustment_weight":0.25, "tf_minimum_u_value": 0.001},
+                        {"varname": "city", "method": "jarowinkler", "tf_adjustment_weight":0.15, "tf_adjust": true}
+                    ]
+                }
+            }
+        ]
+    }
+}

@@ -1,62 +1,4 @@
-function check_input_lengths(x, var_length::Int, varname::String)
-    if typeof(x) == "string"
-        x=[x]
-    end
-    if length(x) == var_length
-        return x
-    elseif length(x) == 1
-        return [x[1] for i in 1:var_length]
-    else
-        @error "Number of inputs for $varname is > 1 and < $var_length (the number of vars declared)."
-    end
-end
 
-# Ensure that vartypes match each other. if string then both must be strings
-# TODO: implement tighter parameter checks and coercion where needed. 
-function check_var_types(x::DataFrame, y::DataFrame, varnames::Vector{String},match_method::Vector{String}, partials::Vector{Bool})
-    xtypes=eltype.(eachcol(select(x, varnames)))
-    ytypes=eltype.(eachcol(select(y, varnames)))
-    # if partials is empty then all partial
-    if partials == []
-        partials = [true for i in xtypes]
-    end
-    comparison_levels = Int[]
-    # defaults if no match methods declared
-    if match_method == []
-        for (ix,iy,iv,partial) in zip(xtypes,ytypes, varnames, partials)
-            comparison_level = typeof(ix) <: Union || typeof(iy) <: Union || partial ? 2 : 1
-            if (ix <: Union{Missing,AbstractString}) && (iy <: Union{Missing,AbstractString})
-                match_type="string"
-            elseif (ix <: Union{Missing,Number}) && (iy <: Union{Missing,Number})
-                if ix <: Union{Missing, Float64} || iy <: Union{Missing,Float64}
-                    match_type="float"
-                else
-                    match_type="numeric"
-                end
-            elseif (ix <: Union{Missing,Bool}) && (iy <: Union{Missing,Bool})
-                match_type="bool"
-            else
-                @error "*(VAR $iv)*: dfA type $ix does not match dfB type $ix or type not known for matching"
-            end
-            push!(match_method, match_type)
-            push!(comparison_levels, comparison_level)
-        end
-    else 
-        for (ix,iy,iv,im,partial) in zip(xtypes,ytypes, varnames,match_method, partials)
-            comparison_level = typeof(ix) <: Union || typeof(iy) <: Union || partial ? 2 : 1
-            push!(comparison_levels, comparison_level)
-        end
-    end
-    return match_method,comparison_levels
-end
-
-function remove_no_matched_var_indices(resultsEM)
-    for i in eachindex(resultsEM.patterns_b)
-        if (match1 in resultsEM.patterns_b[i]) ⊽ (match2 in resultsEM.patterns_b[i])
-            resultsEM.indices[i] = Vector{ComparisonIndex}()
-        end
-    end
-end
 
 
 """
@@ -91,309 +33,114 @@ pgamma_ku      tf_adj_table   varnames       zeta_j
 ```julia
 matched_data = fastLink(dfA, dfB, ["firstname", "lastname", "city"])
 """
-function fastLink(dfA::DataFrame, dfB::DataFrame,
-                  varnames::Vector{String},
-                  idvar::Tuple{String,String};
-                  term_freq_adjustment=[false],
-                  match_method=String[],
-                  partials=[true],
-                  upper_case=[true],
-                  stringdist_method = ["jw"],
-                  cut_a = [0.92], cut_p = [0.88],
-                  jw_weight = [0.1],
-                  address_field = [false],
-                  tol_em = 1e-05,
-                  prior_lambda = 0.0,
-                  w_lambda = 0.0,
-                  prior_pi = 0.0,
-                  w_pi = 0.0,
-                  threshold_match = 0.85,
-                  dedupe_matches = true)
-    # dims
-    numvars=length(varnames)
-    obs_a=nrow(dfA)
-    obs_b=nrow(dfB)
-    dims = (obs_a,obs_b)
-    
-    @info "Checking settings for $numvars declared variables."
-    partials = check_input_lengths(partials, numvars, "partials")
-    upper_case = check_input_lengths(upper_case, numvars, "upper_case")
-    jw_weight = check_input_lengths(jw_weight, numvars, "jw_weight")
-    cut_a = check_input_lengths(cut_a, numvars, "cut_a")
-    cut_p = check_input_lengths(cut_p, numvars, "cut_p")
-    address_field = check_input_lengths(address_field, numvars, "address_field")
-    term_freq_adjustment = check_input_lengths(term_freq_adjustment, numvars, "term_freq_adjustment")
-    stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
-    
-    vartypes, comparison_levels = check_var_types(dfA,dfB,varnames,match_method,partials)
-
-    # results table
-    res = [DiBitMatrix(obs_a,obs_b) for _ in varnames]
-
-    # term frequency tables
-    tf_table_x = [ones(Float16,dims[1]) for _ in varnames]
-    tf_table_y = [ones(Float16,dims[2]) for _ in varnames]
-    
-    # allow missing for comparisons
-    allowmissing!(dfA)
-    allowmissing!(dfB)
-
-    
-    # iterate through variables and execute function over them
-    for i in eachindex(varnames)
-        @info "Now matching var $(varnames[i]) using $(match_method[i])"
-        if match_method[i] == "fuzzy"
-            if term_freq_adjustment[i]
-                gammaCKfuzzy!(dfA[!,varnames[i]],
-                              dfB[!,varnames[i]],
-                              res[i],
-                              dims,
-                              view(tf_table_x[i],:),
-                              view(tf_table_y[i],:),
-                              cut_a=cut_a[i], 
-                              cut_b=cut_p[i],
-                              upper=upper_case[i],
-                              w=jw_weight[i],
-                              partial=partials[i])
-            else
-                gammaCKfuzzy!(dfA[!,varnames[i]],
-                              dfB[!,varnames[i]],
-                              res[i],
-                              dims,
-                              cut_a=cut_a[i], 
-                              cut_b=cut_p[i],
-                              upper=upper_case[i],
-                              w=jw_weight[i],
-                              partial=partials[i])
-            end
-        elseif match_method[i] == "string"
-            if term_freq_adjustment[i]
-                gammaCKpar!(dfA[!,varnames[i]],
-                            dfB[!,varnames[i]],
-                            res[i],
-                            dims,
-                            view(tf_table_x[i],:),
-                            view(tf_table_y[i],:),
-                            distmethod=stringdist_method[i],
-                            cut_a=cut_a[i], 
-                            cut_b=cut_p[i],
-                            w=jw_weight[i],
-                            partial=partials[i])
-            else
-                gammaCKpar!(dfA[!,varnames[i]],
-                            dfB[!,varnames[i]],
-                            res[i],
-                            dims,
-                            distmethod=stringdist_method[i],
-                            cut_a=cut_a[i], 
-                            cut_b=cut_p[i],
-                            w=jw_weight[i],
-                            partial=partials[i])
-            end
-        elseif match_method[i] == "exact" || match_method[i] == "bool"
-            if term_freq_adjustment[i]
-                gammaKpar!(dfA[!,varnames[i]],
-                           dfB[!,varnames[i]],
-                           res[i],
-                           dims,
-                           view(tf_table_x[i],:),
-                           view(tf_table_y[i],:))
-            else
-                gammaKpar!(dfA[!,varnames[i]],
-                           dfB[!,varnames[i]],
-                           res[i],
-                           dims)
-            end
-        elseif match_method == "numeric" || match_method=="float" || match_method == "int"
-            gammaNUMCKpar!(dfA[!,varnames[i]],
-                           dfB[!,varnames[i]],
-                           res[i],
-                           cut_a=cut_a[i],
-                           cut_b=cut_p[i],
-                           partial=partials[i])
-        end
-    end
-    @info "Getting table counts"
-    counts = get_match_patterns(res)
-
-    @info "Running expectation maximization function"
-    resultsEM = emlinkMARmov(counts, obs_a,obs_b,
-                             varnames,tol=tol_em,
-                             prior_lambda=prior_lambda, w_lambda=w_lambda,
-                             prior_pi=prior_pi, w_pi=w_pi,
-                             address_field=address_field)
-    # testing removing uncessessary indices (where no obs exist)
-    #remove_no_matched_var_indices(resultsEM)
-    # adding uids
-
-    if any(term_freq_adjustment)
-        resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),
-                                      tf_adj_table = tf_adj_table(resultsEM,varnames,tf_table_x,tf_table_y)))        
-        
-    else
-        resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),))        
-    end
-    
-
-    
-    @info "Retrieving matches"
-    getMatches!(resultsEM,threshold_match=threshold_match)
-    return (resultsEM) 
-end
-
-# version of fast link that i can pass to via named tuples
-function fastLink(dfA::DataFrame, dfB::DataFrame;
-                  varnames=String[],
-                  match_method=String[],
-                  idvar=String[],
-                  partials=[true],
-                  term_freq_adjustment=[false],
-                  upper_case=[true],
-                  stringdist_method = ["jw"],
-                  cut_a = [0.92], cut_p = [0.88],
-                  jw_weight = [0.1],
-                  address_field = [false],
-                  tol_em = 1e-05,
-                  prior_lambda = 0.0,
-                  w_lambda = 0.0,
-                  prior_pi = 0.0,
-                  w_pi = 0.0,
-                  threshold_match = 0.85,
-                  dedupe_matches = true)
-
+function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any})
     # idvar to Tuple
-    idvar = (idvar[1],idvar[2])
+    idvar=Tuple(config["idvar"])
     # dims
+    varnames = retrieve(config,"varname")
     numvars=length(varnames)
-    obs_a=nrow(dfA)
-    obs_b=nrow(dfB)
-    dims = (obs_a,obs_b)
-    
-    @info "Checking settings for $numvars declared variables."
-    partials = check_input_lengths(partials, numvars, "partials")
-    upper_case = check_input_lengths(upper_case, numvars, "upper_case")
-    jw_weight = check_input_lengths(jw_weight, numvars, "jw_weight")
-    cut_a = check_input_lengths(cut_a, numvars, "cut_a")
-    cut_p = check_input_lengths(cut_p, numvars, "cut_p")
-    stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
-    term_freq_adjustment = check_input_lengths(term_freq_adjustment, numvars, "term_freq_adjustment")
-    stringdist_method = check_input_lengths(stringdist_method, numvars, "stringdist_method")
-    
-    vartypes, comparison_levels = check_var_types(dfA,dfB,varnames,match_method,partials)
+    _dims = (nrow(dfA),nrow(dfB))
 
     # results table
-    res = [DiBitMatrix(obs_a,obs_b) for _ in varnames]
-
-    # term frequency tables
-    tf_table_x = [ones(Float16,dims[1]) for _ in varnames]
-    tf_table_y = [ones(Float16,dims[2]) for _ in varnames]
+    res = Dict(v=>DiBitMatrix(_dims...) for v in varnames)
+    
+    # fetch parameters for varnames
+    parameters=Dict(v=>fetch_parameters(config,v) for v in varnames)
+    
+    tf_tables = Dict{String, Vector{Vector{Float16}}}(v=>[ones(Float16,_dims[1]),ones(Float16,_dims[2])] for v in varnames if haskey(parameters[v], "tf_adjust") && parameters[v]["tf_adjust"])
+    
+    # structure of the expectation maximization function in order of the ability to be executed
+    emlink_configuration = parse_configuration(config)
     
     # allow missing for comparisons
     allowmissing!(dfA)
     allowmissing!(dfB)
-
     
-    for i in eachindex(varnames)
-        @info "Now matching var $(varnames[i]) using $(match_method[i])"
-        if match_method[i] == "fuzzy"
-            if term_freq_adjustment[i]
-                gammaCKfuzzy!(dfA[!,varnames[i]],
-                              dfB[!,varnames[i]],
-                              res[i],
-                              dims,
-                              view(tf_table_x[i],:),
-                              view(tf_table_y[i],:),
-                              cut_a=cut_a[i], 
-                              cut_b=cut_p[i],
-                              upper=upper_case[i],
-                              w=jw_weight[i],
-                              partial=partials[i])
-            else
-                gammaCKfuzzy!(dfA[!,varnames[i]],
-                              dfB[!,varnames[i]],
-                              res[i],
-                              dims,
-                              cut_a=cut_a[i], 
-                              cut_b=cut_p[i],
-                              upper=upper_case[i],
-                              w=jw_weight[i],
-                              partial=partials[i])
-            end
-        elseif match_method[i] == "string"
-            if term_freq_adjustment[i]
-                gammaCKpar!(dfA[!,varnames[i]],
-                            dfB[!,varnames[i]],
-                            res[i],
-                            dims,
-                            view(tf_table_x[i],:),
-                            view(tf_table_y[i],:),
-                            distmethod=stringdist_method[i],
-                            cut_a=cut_a[i], 
-                            cut_b=cut_p[i],
-                            w=jw_weight[i],
-                            partial=partials[i])
-            else
-                gammaCKpar!(dfA[!,varnames[i]],
-                            dfB[!,varnames[i]],
-                            res[i],
-                            dims,
-                            distmethod=stringdist_method[i],
-                            cut_a=cut_a[i], 
-                            cut_b=cut_p[i],
-                            w=jw_weight[i],
-                            partial=partials[i])
-            end
-        elseif match_method[i] == "exact" || match_method[i] == "bool"
-            if term_freq_adjustment[i]
-                gammaKpar!(dfA[!,varnames[i]],
-                           dfB[!,varnames[i]],
-                           res[i],
-                           dims,
-                           view(tf_table_x[i],:),
-                           view(tf_table_y[i],:))
-            else
-                gammaKpar!(dfA[!,varnames[i]],
-                           dfB[!,varnames[i]],
-                           res[i],
-                           dims)
-            end
-        elseif match_method == "numeric" || match_method=="float" || match_method == "int"
-            gammaNUMCKpar!(dfA[!,varnames[i]],
-                           dfB[!,varnames[i]],
-                           res[i],
-                           cut_a=cut_a[i],
-                           cut_b=cut_p[i],
-                           partial=partials[i])
-        end
-    end
-    @info "Getting table counts"
-    counts = get_match_patterns(res)
-
-    @info "Running expectation maximization function"
-    resultsEM = emlinkMARmov(counts, obs_a,obs_b,
-                             varnames,tol=tol_em,
-                             prior_lambda=prior_lambda, w_lambda=w_lambda,
-                             prior_pi=prior_pi, w_pi=w_pi,
-                             address_field=address_field)
-    # testing removing uncessessary indices (where no obs exist)
-    #remove_no_matched_var_indices(resultsEM)
-    # adding uids
-
-    if any(term_freq_adjustment)
-        resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),
-                                      tf_adj_table = tf_adj_table(resultsEM,varnames,tf_table_x,tf_table_y)))        
+    for v in varnames
+        match_method = lowercase(parameters[v]["method"])
+        term_freq_adjustment = retrieve(parameters[v],"tf_adjust") |> x -> !isempty(x) && x |> first
         
+        @info "Now matching var $(v) using $(match_method) with tf_adjust: $term_freq_adjustment"
+        if term_freq_adjustment
+            comparisons_args=namedtuple(remove_keys(parameters[v], ["method", "varname", "tf_adjust", "tf_adjustment_weight"]))
+            
+            if match_method == "fuzzy"
+                gammaCKfuzzy!(dfA[!,v],
+                              dfB[!,v],
+                              res[v],
+                              view(tf_tables[v][1],:),
+                              view(tf_tables[v][2],:);
+                              comparisons_args...)
+            elseif match_method == "string"
+                gammaCKpar!(dfA[!,v],
+                            dfB[!,v],
+                            res[v],
+                            view(tf_tables[v][1],:),
+                            view(tf_tables[v][2],:);
+                            comparisons_args...)
+            elseif match_method ∈ keys(STRING_DISTANCE_METHODS)
+                gammaCKpar!(dfA[!,v],
+                            dfB[!,v],
+                            res[v],
+                            view(tf_tables[v][1],:),
+                            view(tf_tables[v][2],:);
+                            distmethod=STRING_DISTANCE_METHODS[match_method],
+                            comparisons_args...)
+            elseif match_method == "exact" || match_method == "bool"
+                gammaKpar!(dfA[!,v],
+                           dfB[!,v],
+                           res[v],
+                           view(tf_tables[v][1],:),
+                           view(tf_tables[v][2],:);
+                           comparisons_args...)
+            elseif match_method == "numeric" || match_method=="float" || match_method == "int"
+                gammaNUMCKpar!(dfA[!,v],
+                               dfB[!,v],
+                               res[v];
+                               comparisons_args...)
+            end
+        else
+            comparisons_args=namedtuple(remove_keys(parameters[v], ["method", "varname"]))
+            if match_method == "fuzzy"
+                gammaCKfuzzy!(dfA[!,v],
+                              dfB[!,v],
+                              res[v];
+                              comparisons_args...)
+            elseif match_method == "string"
+                gammaCKpar!(dfA[!,v],
+                            dfB[!,v],
+                            res[v];
+                            comparisons_args...)
+            elseif match_method ∈ keys(STRING_DISTANCE_METHODS)
+                gammaCKpar!(dfA[!,v],
+                            dfB[!,v],
+                            res[v];
+                            distmethod=STRING_DISTANCE_METHODS[match_method],
+                            comparisons_args...)
+            elseif match_method == "exact" || match_method == "bool"
+                gammaKpar!(dfA[!,v],
+                           dfB[!,v],
+                           res[v];
+                           comparisons_args...)
+            elseif match_method == "numeric" || match_method=="float" || match_method == "int"
+                gammaNUMCKpar!(dfA[!,v],
+                               dfB[!,v],
+                               res[v];
+                               comparisons_args...)
+                end
+        end
+    end     
+
+    results = process_comparisons(res, emlink_configuration, _dims, parameters, tf_tables)
+
+
+    if length(results)  == 3
+        return Dict("ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
+                "resultsEM" => results[2],
+                "resultsTF" => results[3])
     else
-        resultsEM = merge(resultsEM, (matched_ids = indices_to_uids(dfA[!, idvar[1]],dfB[!, idvar[2]],resultsEM.indices),))        
+        return Dict("ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
+                "resultsEM" => results[2])
     end
-    
-
-    
-    @info "Retrieving matches"
-    getMatches!(resultsEM,threshold_match=threshold_match)
-    return (resultsEM) 
 end
-
-
-
 

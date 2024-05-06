@@ -1,6 +1,6 @@
 using FastLink
 using Test
-import DataFrames: DataFrame, nrow
+import DataFrames: DataFrame, nrow, passmissing, PooledArray
 import CSV
 import Pkg.Artifacts: @artifact_str
 
@@ -20,38 +20,61 @@ dfB=CSV.read("$(b_fil)/dfB.csv", DataFrame,
 dfA.ida = hash.(eachrow(dfA))
 dfB.idb = hash.(eachrow(dfB))
 
+varnames=["firstname","middlename", "lastname","housenum"]
 
-varnames = ["firstname","middlename", "lastname","housenum"]
-cut_a = [0.92,0.92,0.92,1]
-cut_p = [0.88,0.88,0.88,2]
-match_method = ["string","string","string","float"]
-partials = [true,true,true,true]
-stringdist_method = ["jw","jw","jw","jw"]
-upper_case = [false,false,false,false]
-jw_weight = [0.1,0.1,0.1,0.0]
+for var in varnames[1:3]
+    dfA[!,var] = PooledArray(passmissing(x->uppercase(x)).(dfA[:,var]))
+    dfB[!,var] = PooledArray(passmissing(x->uppercase(x)).(dfB[:,var]))
+end
+
+
+dfA.housenum = Vector(dfA.housenum)
+dfB.housenum = Vector(dfB.housenum)
+config = Dict("idvar" => ["ida", "idb"],
+              "link_type" => "link_only",
+              "comparisons" => Dict("name" => "total",
+                                    "variables" => [
+                                        Dict("varname" => "firstname",
+                                             "partial" => true,
+                                             "method" => "jarowinkler",
+                                             "cut_a" => 0.92,
+                                             "cut_b" => 0.88,
+                                             "w" => 0.1),
+                                        Dict("varname" => "middlename",
+                                             "partial" => true,
+                                             "method" => "jarowinkler",
+                                             "cut_a" => 0.92,
+                                             "cut_b" => 0.88,
+                                             "w" => 0.1),
+                                        Dict("varname" => "lastname",
+                                             "partial" => true,
+                                             "method" => "jarowinkler",
+                                             "cut_a" => 0.92,
+                                             "cut_b" => 0.88,
+                                             "w" => 0.1),
+                                        Dict("varname" => "housenum",
+                                             "partial" => true,
+                                             "method" => "numeric",
+                                             "cut_a" => 1,
+                                             "cut_b" => 2)
+                                    ]))
 
 @testset "Testing FastLink Basic Run" begin
     @info "Executing fastLink()"
-    results=fastLink(dfA,dfB,varnames,
-                     ("ida", "idb"),
-                     match_method=match_method,
-                     partials=partials,
-                     upper_case=upper_case,
-                     stringdist_method=stringdist_method,
-                     cut_a=cut_a,
-                     cut_p=cut_p,
-                     jw_weight=jw_weight)
-    @test true
+    results=fastLink(dfA,dfB,config)
+
 
     @info "Correct # of Matches"
-    @test sum(results.patterns_w.counts[results.patterns_w.ismatch]) == 50
-    @info "Number of patterns == 18"
-    @test length(results.patterns_b) == 18
+    p_w = results["resultsEM"]["patterns_w"]
+    inds = p_w.zeta_j .>= 0.85
+    @test sum(p_w.counts[inds]) == 50
+    @info "Number of patterns == 26"
+    @test results["resultsEM"]["number_of_unique_patterns"] == 26
     @info "Number of counts == (N₁×N₂) "
-    @test sum(results.patterns_w.counts) == nrow(dfA) * nrow(dfB)
+    @test sum(p_w.counts) == nrow(dfA) * nrow(dfB)
     @info "Ρ(𝑢) >=.999"
-    @test results.p_u >= .999
+    @test results["resultsEM"]["p_u"] >= .999
     @info "Ρ(𝑚) <= .0005"
-    @test results.p_m <= .0005
+    @test results["resultsEM"]["p_m"] <= .0005
     true
 end

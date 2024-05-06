@@ -9,7 +9,6 @@ The purpose of FastLink.jl is to bring a fast record linkage package to the juli
 ___________________________
 ### Using the fastLink function
 
-
 The basic arguments for the `fastLink` function to run are
 
 - `dfA`: A `DataFrame` table of records to be matched.
@@ -44,7 +43,7 @@ The optional parameters are
 
 - `tol_em`: Convergence tolerance for the EM Algorithm. (default `1e-05`)
 
-- `threshold_match`: Lower bound for the posterior probability that will act as a cutoff for matches.
+- `threshold_match`: Lower bound for the posterior probability that will act as a cutoff for matches. Default `[0.85]`.
 
 - `prior_lambda::Float64`: Default 0.0.
 
@@ -54,7 +53,7 @@ The optional parameters are
 
 - `w_pi::Float64`: Default 0.0.
 
-- `dedupe_matches`: Whether to dedupe the matches within the dataset. Default `[0.85]`.
+- `dedupe_matches`: Whether to dedupe the matches within the dataset.
 
 
 __________________
@@ -93,7 +92,7 @@ A `NamedTuple` with these vars:
 - `tf_adj_table` - A `Vector{DataFrame}` that has a DataFrame for each match pattern and a row in each DataFrame for each comparison appended with the letter of their corresponding dataset.
 
 - `varnames` - A `Vector{String}` of the input variable names
-
+ 
 - `zeta_j` - A `Vector{Float64}` with the posterior match probabilities for each agreement pattern. 
 
 # Examples

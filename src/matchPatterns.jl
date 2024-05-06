@@ -1,3 +1,11 @@
+module matchpatterns
+import Base: getindex, setindex!
+import DataFrames: DataFrame
+
+using ..DiBitMat
+
+export ComparisonIndex, LocalPatterns, MatchPatterns
+
 struct ComparisonIndex
     row::UInt32
     col::UInt32
@@ -22,84 +30,20 @@ struct MatchPatterns
     end
 end
 
-function indices_to_uids(vecA, vecB,
-                         indices::Vector{Vector{ComparisonIndex}}
-                         )
-    batch_size=500
-    inds=eachindex(indices)
-    paired_ids = [Vector{Tuple}() for _ in inds]
-    Threads.@threads for i in inds
-        len=length(indices[i])
-        lk = ReentrantLock()
-        Threads.@threads for first_val in 1:batch_size:len
-            local_paired_ids=Vector{Tuple}()
-            last_val = min(first_val + batch_size - 1, len)
-            for ii in first_val:last_val
-                push!(local_paired_ids,(vecA[indices[i][ii].row],vecB[indices[i][ii].col]))
-            end
-            lock(lk) do
-                append!(paired_ids[i],local_paired_ids)
-            end
-        end
-    end
-    return paired_ids
+# extending base with get and set based on comparison index
+getindex(df::DataFrame, x::ComparisonIndex) = df[x.row,x.col]
+setindex!(df::DataFrame, value, x::ComparisonIndex) = df[x.row,x.col] = value
+
+function getindex(vm::DiBitMatrix, x::ComparisonIndex)
+    linear_index = (x.col - 1) * vm.nrows + x.row
+    return vm.data[linear_index]
+end
+function setindex!(vm::DiBitMatrix, value::UInt8, x::ComparisonIndex)
+        linear_index = (x.col - 1) * vm.nrows + x.row
+        vm.data[linear_index] = value
 end
 
-function get_2Dindex(index::T, nrows::Int) where T <: Integer
-    zero_based_index = index - 1
-    row = Int(mod(zero_based_index, nrows)) + 1
-    col = Int(div(zero_based_index, nrows)) + 1
-    return ComparisonIndex(row, col)
-end
 
-function get_local_patterns(x::Vector{Vector{UInt8}}, N::Int, S::Int)
-    patterns=Vector{Vector{UInt8}}()
-    hashes=Vector{UInt64}()
-    indices=Vector{Vector{UInt16}}()
+end # module MatchPatterns
 
-    for i in 1:S
-        pattern=zeros(UInt8,N)
-        for n in 1:N
-            pattern[n]=x[n][i]
-        end
-        pattern_hash=hash(pattern)
-        id = findfirst(pattern_hash .=== hashes)
-        if isnothing(id)
-            push!(patterns,pattern)
-            push!(hashes,pattern_hash)
-            push!(indices,[i])
-        else
-            push!(indices[id],i)
-        end
-    end
-    return LocalPatterns(patterns,indices,hashes)
-end
 
-function get_match_patterns(res::Vector{DiBitMatrix})
-    matches=MatchPatterns()
-    N = length(res)
-    dimy=res[1].nrows
-    len=Int(res[1].data.len)
-    lk = ReentrantLock()
-    Threads.@threads for first_loc in 0:1024:len
-        last_loc = first_loc + 1024
-        if last_loc > len
-            last_loc=len
-        end
-        x=[res[n].data[(first_loc+1):last_loc] for n in 1:N]
-        patterns=get_local_patterns(x,N,last_loc-first_loc)
-        for i in eachindex(patterns.hashes)
-            lock(lk) do 
-                id = findfirst(patterns.hashes[i] .=== matches.hashes)
-                if isnothing(id)
-                    push!(matches.patterns,patterns.patterns[i])
-                    push!(matches.hashes,patterns.hashes[i])
-                    push!(matches.indices,get_2Dindex.(first_loc .+ patterns.indices[i],dimy))
-                else
-                    append!(matches.indices[id],get_2Dindex.(first_loc .+ patterns.indices[i],dimy))
-                end
-            end
-        end
-    end
-    return matches
-end

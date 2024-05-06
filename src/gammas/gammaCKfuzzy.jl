@@ -166,17 +166,20 @@ https://tech.popdata.org/speeding-up-Jaro-Winkler-with-rust-and-bitwise-operatio
 - `vecB::PooledVector`: Target column of dfB for string comparison.
 - `results::SubArray`: ResultMatrix object's result_matrix.
 - `array_2Dindex::Function`: ResultMatrix object's array_2Dindex function
-- `dims::Tuple`: ResultMatrix object's dims.
+- `_dims::Tuple`: ResultMatrix object's _dims.
 - `cut_a::Float=0.92`: Lower bound for close string distances.
 - `cut_b::Float=0.88`: Lower bound for partial string distance.
 - `upper::Bool=true`: Whether input string is uppercase.
 - `w`: Winkler weight for jw string distance.
     """
-function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix,dims::Tuple{Int,Int};
+function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix;
                        cut_a::Float64=0.92,cut_b::Float64=0.88,upper::Bool=true,
                        w::Float64=0.1,partial::Bool=true)
 
-    
+    if @isdefined(_dims) == false
+        _dims = (length(vecA), length(vecB))
+    end
+
     # functions that update the results view
     if partial
         score_value! = score_value2
@@ -206,7 +209,7 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatri
     Threads.@threads for (query_name,new_a_id) in collect(vecA.invpool)
         # pass if query is missing val
         if new_a_id === missingindexA
-            update_results!(results, lookup_a_by_id[new_a_id],UInt32(1):UInt32(dims[2]),missingval)
+            update_results!(results, lookup_a_by_id[new_a_id],UInt32(1):UInt32(_dims[2]),missingval)
             continue
         end
         
@@ -237,13 +240,17 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatri
 end
 
 
-function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix,dims::Tuple{Int,Int},
+function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix,
                        tf_table_x::SubArray{Float16},
                        tf_table_y::SubArray{Float16};
-                       cut_a::Float64=0.92,cut_b::Float64=0.88,upper::Bool=true,
-                       w::Float64=0.1,partial::Bool=true)
+                       cut_a::Float64=0.92, cut_b::Float64=0.88, upper::Bool=true,
+                       w::Float64=0.1,partial::Bool=true,
+                       tf_minimum_u_value=0.001)
 
-    
+    if @isdefined(_dims) == false
+        _dims = (length(vecA), length(vecB))
+    end
+
     # functions that update the results view
     if partial
         score_value! = score_value2
@@ -265,21 +272,21 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatri
     lookup_a_by_id=pool_lookup_table(vecA.refs, lenA)
     lookup_b_by_id=pool_lookup_table(vecB.refs, lenB)
 
-    dims=(length(vecA),length(vecB))
+    _dims=(length(vecA),length(vecB))
 
     # term frequency for x
     Threads.@threads for i in lookup_a_by_id
-        tf_val=length(i)/dims[1]
+        tf_val=length(i)/_dims[1]
         for ii in i
-            tf_table_x[ii] = tf_val
+            tf_table_x[ii] = max(tf_val, tf_minimum_u_value)
         end
     end
     
     # term frequency for y
     Threads.@threads for i in lookup_b_by_id
-        tf_val=length(i)/dims[2]
+        tf_val=length(i)/_dims[2]
         for ii in i
-            tf_table_y[ii] = tf_val
+            tf_table_y[ii] = max(tf_val, tf_minimum_u_value)
         end
     end
     
@@ -291,7 +298,7 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatri
     Threads.@threads for (query_name,new_a_id) in collect(vecA.invpool)
         # pass if query is missing val
         if new_a_id === missingindexA
-            update_results!(results, lookup_a_by_id[new_a_id],UInt32(1):UInt32(dims[2]),missingval)
+            update_results!(results, lookup_a_by_id[new_a_id],UInt32(1):UInt32(_dims[2]),missingval)
             continue
         end
         

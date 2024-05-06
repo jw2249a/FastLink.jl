@@ -1,8 +1,10 @@
 module Gammas
 import PooledArrays: PooledVector
 import StringDistances: Jaro, JaroWinkler, Levenshtein, DamerauLevenshtein, compare
-using FastLink.DiBitMat
-import FastLink: match1, match2, missingval, nonmatch
+
+using ..DiBitMat
+import ..nonmatch, ..match1, ..match2, ..missingval
+
 
 include("gammaKpar.jl")
 include("gammaNUMCKpar.jl")

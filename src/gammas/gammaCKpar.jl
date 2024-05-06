@@ -30,16 +30,20 @@ String comparison of two columns with partial match.
 - `vecA::PooledVector`: Target column of dfB for string comparison.
 - `vecB::PooledVector`: Target column of dfB for string comparison.
 - `results::DiBitMatrix`: DiBitMatrix object's result_matrix.
-- `dims::Tuple`: DiBitMatrix object's dims.
+- `_dims::Tuple`: DiBitMatrix object's _dims.
 - `cut_a::Float=0.92`: Lower bound for close string distances.
 - `cut_b::Float=0.88`: Lower bound for partial string distances.
 - `distmethod::String`: String distance method ("jw" Jaro-Winkler (Default), "dl" Damerau-Levenshtein, "jaro" Jaro, "lv" Levenshtein, and "ham" Hamming).
 - `w`: Winkler weight for jw string distance.
 """
 function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
-                     results::DiBitMatrix,dims::Tuple{Int,Int};
+                     results::DiBitMatrix;
                      distmethod="jw",cut_a=0.92,cut_b=0.88,partial=true,w=0.1)
 
+    if @isdefined(_dims) == false
+        _dims = (length(vecA), length(vecB))
+    end
+    
     # assign distance function
     if distmethod=="jw"
         distance = JaroWinkler(p=w)
@@ -49,7 +53,14 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
         distance = Jaro(p=w)
     elseif distmethod=="lv"
         distance = Levenshtein()
+    elseif distmethod=="ro"
+        distance = RatcliffObershelp()
+    elseif distmethod=="osa"
+        distance = OptimalStringAlignment()
+    elseif distmethod=="hamming"
+        distance = Hamming()
     end
+
 
     if partial
         score_value! = score_value2
@@ -77,7 +88,7 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
     # set all to missing where x is missing
     if !isnothing(missingvals_x)
         missingindices = findall(vecA.refs .== missingvals_x)
-        Threads.@threads for iy in 1:dims[2]
+        Threads.@threads for iy in 1:_dims[2]
             for ix in missingindices
                 results[ix,iy] = missingval
             end
@@ -87,7 +98,7 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
     # set all to missing where y is missing
     if !isnothing(missingvals_y)
         missingindices = findall(vecB.refs .== missingvals_y)
-        Threads.@threads for ix in 1:dims[1]
+        Threads.@threads for ix in 1:_dims[1]
             for iy in missingindices
                 results[ix,iy] = missingval
             end
@@ -99,11 +110,17 @@ end
 
 # term frequency adjusted version
 function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
-                     results::DiBitMatrix,dims::Tuple{Int,Int},
+                     results::DiBitMatrix,
                      tf_table_x::SubArray{Float16},
                      tf_table_y::SubArray{Float16};
-                     distmethod="jw",cut_a=0.92,cut_b=0.88,partial=true,w=0.1)
+                     distmethod="jw",cut_a=0.92,cut_b=0.88,partial=true,w=0.1,
+                     tf_minimum_u_value=0.001)
 
+    if @isdefined(_dims) == false
+        _dims = (length(vecA), length(vecB))
+    end
+    
+    
     # assign distance function
     if distmethod=="jw"
         distance = JaroWinkler(p=w)
@@ -113,6 +130,12 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
         distance = Jaro(p=w)
     elseif distmethod=="lv"
         distance = Levenshtein()
+    elseif distmethod=="ro"
+        distance = RatcliffObershelp()
+    elseif distmethod=="osa"
+        distance = OptimalStringAlignment()
+    elseif distmethod=="hamming"
+        distance = Hamming()
     end
 
     if partial
@@ -134,9 +157,9 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
         indices_x = findall(vecA.refs .=== x)
         
         # term frequency adjustment for x
-        tf_val_x = length(indices_x)/dims[1]
+        tf_val_x = length(indices_x)/_dims[1]
         for tf_i in indices_x
-            tf_table_x[tf_i] =tf_val_x
+            tf_table_x[tf_i] = max(tf_val_x, tf_minimum_u_value)
         end
         
         for y in iter_y
@@ -144,9 +167,9 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
             indices_y = findall(vecB.refs .=== y)
             
             # term frequency adjustment for y
-            tf_val_y = length(indices_y)/dims[2]
+            tf_val_y = length(indices_y)/_dims[2]
             for tf_i in indices_y
-                tf_table_y[tf_i] = tf_val_y
+                tf_table_y[tf_i] = max(tf_val_y, tf_minimum_u_value)
             end
 
             # string comparison
@@ -160,12 +183,12 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
         missingindices = findall(vecA.refs .== missingvals_x)
 
         # term frequency adjustment for x
-        tf_val_x = length(missingindices)/dims[1]
+        tf_val_x = length(missingindices)/_dims[1]
         for tf_i in missingindices
-            tf_table_x[tf_i] =tf_val_x
+            tf_table_x[tf_i] = max(tf_val_y, tf_minimum_u_value)
         end
         
-        Threads.@threads for iy in 1:dims[2]
+        Threads.@threads for iy in 1:_dims[2]
             for ix in missingindices
                 results[ix,iy] = missingval
             end
@@ -176,12 +199,12 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
     if !isnothing(missingvals_y)
         missingindices = findall(vecB.refs .== missingvals_y)
         # term frequency adjustment for y
-        tf_val_y = length(missingindices)/dims[2]
+        tf_val_y = length(missingindices)/_dims[2]
         for tf_i in missingindices
-            tf_table_y[tf_i] =tf_val_y
+            tf_table_y[tf_i] = max(tf_val_y, tf_minimum_u_value)
         end
 
-        Threads.@threads for ix in 1:dims[1]
+        Threads.@threads for ix in 1:_dims[1]
             for iy in missingindices
                 results[ix,iy] = missingval
             end
@@ -191,70 +214,3 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
     return nothing
 end
 
-# term frequency adjusted version
-function gammaKpar!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix, dims::Tuple,
-                    tf_table_x::SubArray{Float16},
-                    tf_table_y::SubArray{Float16})
-    # Segment unique keys from missing key
-    missingvals_x = findfirst(ismissing.(vecA.pool))
-    iter_x=filter(x -> x != missingvals_x, 0x00000001:UInt32(length(vecA.pool)))
-    
-    missingvals_y = findfirst(ismissing.(vecB.pool))
-    iter_y=filter(x -> x != missingvals_y, 0x00000001:UInt32(length(vecB.pool)))
-    
-    # Form match matrices based on differing levels of matches
-    Threads.@threads for x in iter_x
-        indices_x = findall(vecA.refs .=== x)
-         # term frequency adjustment for x
-        tf_val_x = length(indices_x)/dims[1]
-        for tf_i in indices_x
-            tf_table_x[tf_i] =tf_val_x
-        end
-        for y in  iter_y
-            indices_y = findall(vecB.refs .=== y)
-             # term frequency adjustment for y
-            tf_val_y = length(indices_y)/dims[2]
-            for tf_i in indices_y
-                tf_table_y[tf_i] = tf_val_y
-            end
-            # if matches at a threshold, go through result vector and assign new value
-            if vecA.pool[x] == vecB.pool[y]
-                for ix in indices_x,iy in indices_y
-                    results[ix,iy] = match2
-                end
-            end
-        end
-    end
-
-    # set all to missing where x is missing
-    if !isnothing(missingvals_x)
-        missingindices = findall(vecA.refs .== missingvals_x)
-        # term frequency adjustment for x
-        tf_val_x = length(missingindices)/dims[1]
-        for tf_i in missingindices
-            tf_table_x[tf_i] =tf_val_x
-        end
-        Threads.@threads for iy in 1:dims[2]
-            for ix in missingindices
-                results[ix,iy] = missingval
-            end
-        end
-    end
-    # set all to missing where y is missing
-    if !isnothing(missingvals_y)
-        missingindices = findall(vecB.refs .== missingvals_y)
-         # term frequency adjustment for y
-        tf_val_y = length(missingindices)/dims[2]
-        for tf_i in missingindices
-            tf_table_y[tf_i] =tf_val_y
-        end
-        
-        Threads.@threads for ix in 1:dims[1]
-            for iy in missingindices
-                results[ix,iy] = missingval
-            end
-        end
-    end
-    # Return nothing
-    return nothing
-end

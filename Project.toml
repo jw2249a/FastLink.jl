@@ -1,12 +1,13 @@
 name = "FastLink"
 uuid = "11f39cfd-5548-489f-be9a-f4ad0ff6eadc"
 authors = ["Jack R. Williams <contact@jackryanwilliams.com>"]
-version = "0.0.2"
+version = "0.0.5"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 PooledArrays = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
 StaticStrings = "4db0a0c5-418a-4e1d-8806-cb305fe13294"
 StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"

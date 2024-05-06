@@ -192,7 +192,9 @@ end
 
 function match_and_link(patterns::Vector{DiBitMatrix}, e::Dict{String, Any}, _dims::Tuple{Int64,Int64},
                         final_name::String)
+    @info "getting match patterns"
     counts=get_match_patterns(patterns)
+    @info "running emlink"
     resultsEM=emlinkMARmov(counts.patterns,
                            length.(counts.indices),
                            _dims,

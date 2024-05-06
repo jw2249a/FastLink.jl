@@ -55,14 +55,6 @@ function gammaNUMCKpar!(vecA::Vector, vecB::Vector,
     vecA=allow_missing(vecA)
     vecB=allow_missing(vecB)
 
-    # coercing cuts in case they are wrong type
-    if (eltype(vecA) <: Union{Integer,Missing}) & (eltype(vecB) <: Union{Integer,Missing})
-        cut_a = Int(cut_a)
-        cut_b = Int(cut_b)
-    else
-        cut_a = Float64(cut_a)
-        cut_b = Float64(cut_b)
-    end
 
     # get the sorted indices of a large copied array
     append!(vecA,vecB)

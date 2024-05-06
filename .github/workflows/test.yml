@@ -12,14 +12,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        julia-version: ['1.9', 'nightly']
+        julia-version: ['1.10', 'nightly']
         julia-arch: [x64]
         os: [ubuntu-latest]
 
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
-      - uses: julia-actions/cache@v1
         with:
           version: ${{ matrix.julia-version }}
           arch: ${{ matrix.julia-arch }}

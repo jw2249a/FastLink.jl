@@ -145,7 +145,7 @@ function gammaKpar!(vecA::Vector,vecB::Vector,results::DiBitMatrix)
     Threads.@threads for (ix, x) in collect(enumerate(vecA))
         indices_x = findall(vecA .=== x)
         if ismissing(x)
-            for iy in collect(1:dims[2])
+            for iy in collect(1:_dims[2])
                 results[ix,iy] = missingval
             end
         else

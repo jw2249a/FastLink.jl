@@ -179,7 +179,6 @@ function gammaCKfuzzy!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatri
     if @isdefined(_dims) == false
         _dims = (length(vecA), length(vecB))
     end
-
     # functions that update the results view
     if partial
         score_value! = score_value2

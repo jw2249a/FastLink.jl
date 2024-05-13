@@ -99,9 +99,6 @@ function generate_tf_adjustment_dict(EMOutput::Dict{String,Any}, tfPatterns::Dic
 end
 
 
-
-
-
 function find_tf_pattern_vars(unique_pattern::Vector{UInt8}, tf_indices::Vector{Int64})::Vector{Int64}
     return intersect(tf_indices, findall(unique_pattern .== match1 .|| unique_pattern .== match2))
 end
@@ -157,8 +154,6 @@ end
 function get_tf_weight(parameters::Dict, varname::String)::Float64
     return in("tf_adjustment_weight", keys(parameters[varname])) ? parameters[varname]["tf_adjustment_weight"] : 1.0
 end
-
-
 
 
 function update_tf_zetas_ismatch(final_bf::Vector{Float64},

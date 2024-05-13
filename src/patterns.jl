@@ -97,7 +97,7 @@ function get_match_patterns(res::Vector{DiBitMatrix}, tf_tables::Dict{String, Ve
     dimy=res[1].nrows
     len=Int(res[1].data.len)
     lk = ReentrantLock()
-    for first_loc in 0:1024:len
+    Threads.@threads for first_loc in 0:1024:len
         last_loc = first_loc + 1024
         if last_loc > len
             last_loc=len

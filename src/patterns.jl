@@ -90,16 +90,14 @@ end
 
 function get_match_patterns(res::Vector{DiBitMatrix}, tf_tables::Dict{String, Vector{Vector{Float16}}},
                             tf_vars::Vector{String}, tf_indices::Vector{Int64}, isexact=Bool[])
-
     tf_patterns = Dict("relevant_tf_indices"=>Vector{Int64}[],
-                       "tf_denom_vals"=>Vector{Vector{Float16}}[])
-    
+                       "tf_denom_vals"=>Vector{Vector{Float16}}[])  
     matches=MatchPatterns()
     N = length(res)
     dimy=res[1].nrows
     len=Int(res[1].data.len)
     lk = ReentrantLock()
-    Threads.@threads for first_loc in 0:1024:len
+    for first_loc in 0:1024:len
         last_loc = first_loc + 1024
         if last_loc > len
             last_loc=len
@@ -108,22 +106,20 @@ function get_match_patterns(res::Vector{DiBitMatrix}, tf_tables::Dict{String, Ve
         patterns=get_local_patterns(x,N,last_loc-first_loc)
         for i in eachindex(patterns.hashes)
             lock(lk) do
-
                 id = findfirst(patterns.hashes[i] .=== matches.hashes)
                 pattern_indices = get_2Dindex.(first_loc .+ patterns.indices[i],dimy)
                 if isnothing(id)
                     push!(matches.patterns,patterns.patterns[i])
                     push!(matches.hashes,patterns.hashes[i])
                     push!(matches.indices, pattern_indices)
-
                     relevant_tf_indices = find_tf_pattern_vars(patterns.patterns[i], tf_indices)
+                    tfi_ids = [findfirst(tfi .== tf_indices) for tfi in relevant_tf_indices]
                     push!(tf_patterns["relevant_tf_indices"], relevant_tf_indices)
-                    push!(tf_patterns["tf_denom_vals"], [match_level_tf_lookup(tf_tables[tf_vars[tfi]], pattern_indices, isexact[tfi])
-                                                         for tfi in relevant_tf_indices])
+                    push!(tf_patterns["tf_denom_vals"], [match_level_tf_lookup(tf_tables[tf_vars[tfi]], pattern_indices, isexact[tfi]) for tfi in tfi_ids])
                 else
+                    tfi_ids = [findfirst(tfi .== tf_indices) for tfi in tf_patterns["relevant_tf_indices"][id]]
                     append!(matches.indices[id], pattern_indices)
-
-                    for (tfi_loc, tfi) in enumerate(tf_patterns["relevant_tf_indices"][id])
+                    for (tfi_loc, tfi) in enumerate(tfi_ids)
                         append!(tf_patterns["tf_denom_vals"][id][tfi_loc], match_level_tf_lookup(tf_tables[tf_vars[tfi]], pattern_indices, isexact[tfi]))
                     end
                 end
@@ -224,7 +220,7 @@ function match_and_link(patterns::Vector{DiBitMatrix}, e::Dict{String, Any}, _di
                              e["parameters"]...)
     
     tf_prior_weights = get_tf_adjustment_prior_weights(parameters, tf_vars)
-    resultsTF = generate_tf_adjustment_dict(resultsEM, tf_patterns, tf_prior_weights; base="log")
+    resultsTF = generate_tf_adjustment_dict(resultsEM, e, tf_vars, tf_patterns, tf_prior_weights; base="log")
 
     if e["name"] != final_name
         return patterns_to_DiBit(resultsTF, counts.indices, _dims)

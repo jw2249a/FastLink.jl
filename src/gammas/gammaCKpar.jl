@@ -184,7 +184,7 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
 
         # term frequency adjustment for x
         tf_val_x = length(missingindices)/_dims[1]
-        for tf_i in missingindices
+        Threads.@threads for tf_i in missingindices
             tf_table_x[tf_i] = max(tf_val_y, tf_minimum_u_value)
         end
         
@@ -200,7 +200,7 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
         missingindices = findall(vecB.refs .== missingvals_y)
         # term frequency adjustment for y
         tf_val_y = length(missingindices)/_dims[2]
-        for tf_i in missingindices
+        Threads.@threads for tf_i in missingindices
             tf_table_y[tf_i] = max(tf_val_y, tf_minimum_u_value)
         end
 

@@ -72,14 +72,17 @@ function pattern_tf_adjustment!(tf_result::Dict{String, Any}, colnames::Vector{S
     return nothing
 end
 
-function generate_tf_adjustment_dict(EMOutput::Dict{String,Any}, tfPatterns::Dict{String,Vector}, tf_prior_weights::Vector{Float64}; base="log2")
+function generate_tf_adjustment_dict(EMOutput::Dict{String,Any},e::Dict{String, Any}, tf_vars::Vector{String}, tfPatterns::Dict{String,Vector}, tf_prior_weights::Vector{Float64}; base="log2")
     tfResults = generate_tf_skeleton(EMOutput, tfPatterns["relevant_tf_indices"])
     threshold_match = EMOutput["threshold_match"]
     for pattern_id in collect(1:EMOutput["number_of_unique_patterns"])
-        colindices = tfPatterns["relevant_tf_indices"][pattern_id]
+        colindices = tfPatterns["relevant_tf_indices"][pattern_id]        
+        
         count = EMOutput["patterns_w"].counts[pattern_id]
         tf_uvals = get_tf_u_values(EMOutput["patterns_w"], colindices, pattern_id)
-        tf_pw = tf_prior_weights[colindices]
+
+        ci = [findfirst(v .== tf_vars) for v in e["variables"][colindices]]
+        tf_pw = tf_prior_weights[ci]
         
         if tfResults[pattern_id]["tf_adjusted"]
             

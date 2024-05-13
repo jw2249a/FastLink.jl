@@ -132,7 +132,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any})
     end     
 
     results = process_comparisons(res, emlink_configuration, _dims, parameters, tf_tables)
-    
+
     if length(results)  == 3
         return Dict("ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
                 "resultsEM" => results[2],

@@ -129,3 +129,37 @@ function gammaKpar!(vecA::PooledVector,vecB::PooledVector,results::DiBitMatrix,
     return nothing
 end
 
+# vector version of gammakpar for highly entropic data (aka high ordinality compared to obs)
+function gammaKpar!(vecA::Vector,vecB::Vector,results::DiBitMatrix)
+    if @isdefined(_dims) == false
+        _dims = (length(vecA), length(vecB))
+    end
+    # Segment unique keys from missing key
+    missingvals_x = findfirst(ismissing.(vecA))
+    iter_x=filter(x -> x != missingvals_x, 0x00000001:UInt32(length(vecA)))
+    
+    missingvals_y = findfirst(ismissing.(vecB))
+    iter_y=filter(x -> x != missingvals_y, 0x00000001:UInt32(length(vecB)))
+    
+    # Form match matrices based on differing levels of matches
+    Threads.@threads for (ix, x) in collect(enumerate(vecA))
+        indices_x = findall(vecA .=== x)
+        if ismissing(x)
+            for iy in collect(1:dims[2])
+                results[ix,iy] = missingval
+            end
+        else
+            Threads.@threads for (iy, y) in collect(enumerate(vecB))
+                if ismissing(y)
+                    results[ix,iy] = missingval
+                elseif x == y
+                    results[ix,iy] = match2
+                end
+                # if matches at a threshold, go through result vector and assign new value
+            end
+        end
+    end
+    # Return nothing
+    return nothing
+end
+

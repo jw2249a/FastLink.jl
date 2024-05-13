@@ -1,5 +1,5 @@
 module Gammas
-import PooledArrays: PooledVector
+import PooledArrays: PooledVector, PooledArray
 import StringDistances: Jaro, JaroWinkler, Levenshtein, DamerauLevenshtein, compare
 
 using ..DiBitMat

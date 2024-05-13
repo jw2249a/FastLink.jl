@@ -1,14 +1,13 @@
-using FastLink
 using DataFrames
 using CSV
 using PooledArrays
-import Pkg.Artifacts: @artifact_str
-#Pkg.add(url="https://github.com/jw2249a/FastLink.jl")
-using StatsBase
+import Pkg
+Pkg.add(url="https://github.com/jw2249a/FastLink.jl")
+using FastLink
 using JSON
 
-a_fil = @artifact_str "dfA"
-b_fil = @artifact_str "dfB"
+a_fil = Pkg.Artifacts.@artifact_str "dfA"
+b_fil = Pkg.Artifacts.@artifact_str "dfB"
 
 
 dfA=CSV.read("$(a_fil)/dfA.csv", DataFrame,

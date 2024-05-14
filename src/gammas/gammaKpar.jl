@@ -210,12 +210,6 @@ function gammaKpar!(vecA::Vector,vecB::Vector,results::DiBitMatrix)
     if @isdefined(_dims) == false
         _dims = (length(vecA), length(vecB))
     end
-    # Segment unique keys from missing key
-    missingvals_x = findfirst(ismissing.(vecA))
-    iter_x=filter(x -> x != missingvals_x, 0x00000001:UInt32(length(vecA)))
-    
-    missingvals_y = findfirst(ismissing.(vecB))
-    iter_y=filter(x -> x != missingvals_y, 0x00000001:UInt32(length(vecB)))
     
     # Form match matrices based on differing levels of matches
     Threads.@threads for (ix, x) in collect(enumerate(vecA))

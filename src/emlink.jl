@@ -133,7 +133,7 @@ function emlinkMARmov(patterns::MatchPatterns, dims::Tuple{Int,Int},varnames::Ve
         log_prod_gamma_ju = p_gamma_ju .+ log(p_u)
         zeta_j = exp.(log_prod_gamma_jm - logxpy(log_prod_gamma_jm,log_prod_gamma_ju))
         num_prod = exp.(log.(n_j) + log.(zeta_j))
-        p_m = exp(log(sum(num_prod) + mu - 1) - log(psi - mu + sum(n_j)))
+        p_m = exp(log(abs(sum(num_prod) + mu - 1)) - log(abs(psi - mu + sum(n_j))))
         p_u = 1-p_m
 
         for i in 1:nfeatures
@@ -280,7 +280,7 @@ function emlinkMARmov(gamma_jk::Vector{Vector{UInt8}},n_j::Vector{Int64}, dims::
         log_prod_gamma_ju = p_gamma_ju .+ log(p_u)
         zeta_j = exp.(log_prod_gamma_jm - logxpy(log_prod_gamma_jm,log_prod_gamma_ju))
         num_prod = exp.(log.(n_j) + log.(zeta_j))
-        p_m = exp(log(sum(num_prod) + mu - 1) - log(psi - mu + sum(n_j)))
+        p_m = exp(log(abs(sum(num_prod) + mu - 1)) - log(abs(psi - mu + sum(n_j))))
         p_u = 1-p_m
 
         for i in 1:nfeatures

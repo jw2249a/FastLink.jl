@@ -17,7 +17,7 @@ The basic arguments for the `fastLink` function to run are
 
 - `config`: A `Dict{String, Any}` that specifies how the two dataframes ought to be matched. 
 
-### Match Configuration
+### Match Configurations
 
 The match configuration for a FastLink match needs to contain certain in the base dictionary (nested dictionaries will be discussed later).
 
@@ -29,7 +29,7 @@ The Base Dictionary needs to contain:
 
 - `comparisons`: a `Dict{String, Any}` a that defines the type of matching to be done and the variables that will be matched. 
 
-#### Comparisons dictionary
+### Comparisons dictionary
 The comparison dictionary defined above can be located in the base Dictionary or can be substituted instead of a `varname` dictionary in the `variables` vector. The effect of nesting the comparisons in the `variables` vector will lead it to be matched first using the fastlink algorithm and then treated as a single variables in the parent `comparisons` dictionary. You can substitute multiple `varnames` for comparisons at the same level of nestedness. 
 
 Each `comparisons` dictionary much have: 
@@ -50,36 +50,40 @@ The optional parameters for the `comparisons` dictionary are:
 
 - `w_pi::Float64`: Default 0.0.
 
-#### Variables
+### Variables
+
 Individual variables can be declared in a dictionary and must contain both a `varname` and `method`. 
 
 - `varname`: name of the variable in `dfA` and `dfB` to be compared.
 
 - `method`: the method to match the variable. The current accepted methods are (`exact`, `fuzzy`, `string`, `numeric`, `float`, `int` any of the `distmethod` options).
 
+### Methods
 Each `method` has a number of arguments that can be specified for that matching method. 
 
+#### fuzzy
+
+#### string
+
+#### numeric
 
 
-- `term_freq_adjustment`: A `Vector{Bool}` that determines whether you want the term frequencies for each comparision for a given variable. Note: does not adjust match weight. Default value `[false]`.
+- `term_freq_adjustment`: A `Bool` that determines whether you want the term frequencies for each comparision for a given variable. Note: does not adjust match weight.
 
-- `match_method`: A `Vector{String}` that specifies the matching method you would like to do. Match methods supported are "string","exact","fuzzy" (jaro-winkler strings only),"numeric","float",and "int"). Default value inferred from column type.
+- `tf_adjustment_weight`: how much to weight on the term_freq_adjustment vs the predicted match value.
 
-- `partials`: A `Vector{Bool}` that specifies whether you want to do 2 (true) or 1 (false) comparison levels for a given variable. Default value `[true]`. 
+- `tf_minimum_u_value`: minimum term frequency value to adjust by.
 
-- `upper_case`: A `Vector{Bool}` that specifies whether a strings column value is upper or lower (only if `match_method` for column is "fuzzy"). Default value is `[true]`.
+- `partial`: A `Bool` that specifies whether you want to do 2 (true) or 1 (false) comparison levels for a given variable. Default value `true`. 
 
-- `stringdist_method`: A `Vector{String}` that specifies the desired string distance method ("jw" Jaro-Winkler (Default), "dl" Damerau-Levenshtein, "jaro" Jaro, "lv" Levenshtein, and "ham" Hamming). Default `["jw"]`.
+- `upper_case`: A `Bool` that specifies whether a strings column value is upper or lower (only if `method`=`true`. Default value is `true`.
 
-- `cut_a`  A `Float` that specifies the first lower bound for string distance cutoff for each comparison. Default `[0.92]`.
+- `stringdist_method`: A `String` that specifies the desired string distance method ("jw" Jaro-Winkler (Default), "dl" Damerau-Levenshtein, "jaro" Jaro, "lv" Levenshtein, and "ham" Hamming). Default `"jw"`.
 
-- `cut_b`: A `Float` that specifies the second lower bound for string distance (if varnames in partial) for each comparison. Default `[0.88]`.
+- `cut_a`:  A `Float` that specifies the first lower bound for string distance cutoff for each comparison. Default `0.92`.
+- `cut_b`: A `Float` that specifies the second lower bound for string distance (if varnames in partial) for each comparison. Default `0.88`.
 
-
-
-
-- `dedupe_matches`: Whether to dedupe the matches within the dataset.
-
+- `w`: A `Float` that specifies the Winkler weight for jw string distance for each comparison. Default `0.1`.
 
 ## Example FastLink configuration with 1 embedded comparisons dictionary 
 

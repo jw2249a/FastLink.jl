@@ -78,18 +78,40 @@ Each `method` has a number of arguments that can be specified for that matching 
 
 
 
-
-
-
-
-
-
-
-
-
-
 - `dedupe_matches`: Whether to dedupe the matches within the dataset.
 
+
+## Example FastLink configuration with 1 embedded comparisons dictionary 
+
+``` json
+{
+    "link_type": "link_only",
+    "idvar": ["id", "id2"],
+    "comparisons": {
+        "name": "total",
+        "prior_lambda": 0.000001,
+        "w_lambda": 0.5,
+        "threshold_match": 0.88,
+        "variables": [
+            {"varname": "firstname", "method": "fuzzy", "partial": true, "cut_a": 0.92, "cut_b": 0.88, "upper": true, "tf_adjust": true, "w": 0.1},
+            {"varname": "middlename", "method": "exact"},
+            {"varname": "lastname", "method": "jarowinkler", "tf_adjust": true},
+            {"varname": "birthyear", "method": "exact"},
+            {
+                "comparisons": {
+                    "name": "address",
+                    "threshold_match": 0.92,
+                    "variables": [
+                        {"varname": "housenum", "method": "exact", "tf_adjust": true},
+                        {"varname": "streetname", "method": "jarowinkler", "w": 0.1, "tf_adjust": true, "tf_adjustment_weight":0.25, "tf_minimum_u_value": 0.001},
+                        {"varname": "city", "method": "jarowinkler", "tf_adjustment_weight":0.15, "tf_adjust": true}
+                    ]
+                }
+            }
+        ]
+    }
+}
+```
 
 __________________
 ### `fastLink`'s output

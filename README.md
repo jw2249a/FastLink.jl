@@ -15,13 +15,51 @@ The basic arguments for the `fastLink` function to run are
 
 - `dfB`: A `DataFrame` table of records to be matched.
 
-- `varnames` A `Vector{String}` that contains the variable names present in both tables.
+- `config`: A `Dict{String, Any}` that specifies how the two dataframes ought to be matched. 
 
-- `idvar`: A `Tuple{String,String}` that has the unique ids for records in both tables (should differ from each other). Should be formatted as so that the arguments are ordered in ("dfa","dfb") order.
+### Match Configuration
 
-In addition, there are a number of optional parameters to assist with record linkage. For each of the parameters, you can either specify each variables value or specify a vector with 1 value to apply it to all relevant variables. If irrelevant, like `stringdist_method` for a numeric match method, it will be ignored. 
+The match configuration for a FastLink match needs to contain certain in the base dictionary (nested dictionaries will be discussed later).
 
-The optional parameters are
+The Base Dictionary needs to contain:
+
+- `link_type`: Either `link_only`, `dedupe_only`, or `link_and_dedupe`.
+
+- `idvar`: A `Vector{String}` of length 2 that specifies the ids of the two dataframes (in `[dfA, dfB]` order).
+
+- `comparisons`: a `Dict{String, Any}` a that defines the type of matching to be done and the variables that will be matched. 
+
+#### Comparisons dictionary
+The comparison dictionary defined above can be located in the base Dictionary or can be substituted instead of a `varname` dictionary in the `variables` vector. The effect of nesting the comparisons in the `variables` vector will lead it to be matched first using the fastlink algorithm and then treated as a single variables in the parent `comparisons` dictionary. You can substitute multiple `varnames` for comparisons at the same level of nestedness. 
+
+Each `comparisons` dictionary much have: 
+- `name`: should be "total" in the base dictionary and then can be any `name` for the nested dictionaries. 
+
+- `variables`: a `Vector{Dict{String, Any}}` that contains the individual variable dictionaries and/or a `comparisons` dictionaries.
+
+The optional parameters for the `comparisons` dictionary are:
+- `w_lambda::Float64`: Default 0.0.
+
+- `prior_lambda::Float64`: Default 0.0.
+
+- `threshold_match`: Lower bound for the posterior probability that will act as a cutoff for matches. Default `[0.85]`.
+
+- `tol_em`: Convergence tolerance for the EM Algorithm. (default `1e-05`)
+
+- `prior_pi::Float64`: Default 0.0.
+
+- `w_pi::Float64`: Default 0.0.
+
+#### Variables
+Individual variables can be declared in a dictionary and must contain both a `varname` and `method`. 
+
+- `varname`: name of the variable in `dfA` and `dfB` to be compared.
+
+- `method`: the method to match the variable. The current accepted methods are (`exact`, `fuzzy`, `string`, `numeric`, `float`, `int` any of the `distmethod` options).
+
+Each `method` has a number of arguments that can be specified for that matching method. 
+
+
 
 - `term_freq_adjustment`: A `Vector{Bool}` that determines whether you want the term frequencies for each comparision for a given variable. Note: does not adjust match weight. Default value `[false]`.
 
@@ -33,25 +71,22 @@ The optional parameters are
 
 - `stringdist_method`: A `Vector{String}` that specifies the desired string distance method ("jw" Jaro-Winkler (Default), "dl" Damerau-Levenshtein, "jaro" Jaro, "lv" Levenshtein, and "ham" Hamming). Default `["jw"]`.
 
-- `cut_a`  A `Vector{Float}` that specifies the first lower bound for string distance cutoff for each comparison. Default `[0.92]`.
+- `cut_a`  A `Float` that specifies the first lower bound for string distance cutoff for each comparison. Default `[0.92]`.
 
-- `cut_p`: A `Vector{Float}` that specifies the second lower bound for string distance (if varnames in partial) for each comparison. Default `[0.88]`.
+- `cut_b`: A `Float` that specifies the second lower bound for string distance (if varnames in partial) for each comparison. Default `[0.88]`.
 
-- `jw_weight`: A `Vector{Float}` that specifies the Winkler weight for jw string distance for each comparison. Default `[0.1]`.
 
-- `address_field`: A `Vector{Bool}` that specifies whether a comparison contains an address field. Default `[false]`.
 
-- `tol_em`: Convergence tolerance for the EM Algorithm. (default `1e-05`)
 
-- `threshold_match`: Lower bound for the posterior probability that will act as a cutoff for matches. Default `[0.85]`.
 
-- `prior_lambda::Float64`: Default 0.0.
 
-- `w_lambda::Float64`: Default 0.0.
 
-- `prior_pi::Float64`: Default 0.0.
 
-- `w_pi::Float64`: Default 0.0.
+
+
+
+
+
 
 - `dedupe_matches`: Whether to dedupe the matches within the dataset.
 

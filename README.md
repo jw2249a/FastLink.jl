@@ -156,7 +156,3 @@ A `NamedTuple` with these vars:
  
 - `zeta_j` - A `Vector{Float64}` with the posterior match probabilities for each agreement pattern. 
 
-# Examples
-```julia
-matched_data = fastLink(dfA, dfB, ["firstname", "lastname", "city"], ("id","id2"))
-``` 

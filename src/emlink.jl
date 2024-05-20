@@ -127,12 +127,12 @@ function emlinkMARmov(patterns::MatchPatterns, dims::Tuple{Int,Int},varnames::Ve
             p_gamma_kjm[i,:] = [ismissing(j) ? missing : p_gamma_km[i][findfirst(uvals_gamma_jk[i] .== j)] for j in vals_gamma_jk[i]]
             p_gamma_kju[i,:] = [ismissing(j) ? missing : p_gamma_ku[i][findfirst(uvals_gamma_jk[i] .== j)] for j in vals_gamma_jk[i]]
         end
-        p_gamma_jm = sum.(skipmissing.(eachcol(log.(p_gamma_kjm))))
-        p_gamma_ju = sum.(skipmissing.(eachcol(log.(p_gamma_kju))))
-        log_prod_gamma_jm = p_gamma_jm .+ log(p_m)
-        log_prod_gamma_ju = p_gamma_ju .+ log(p_u)
+        p_gamma_jm = sum.(skipmissing.(eachcol(log.(abs.(p_gamma_kjm)))))
+        p_gamma_ju = sum.(skipmissing.(eachcol(log.(abs.(p_gamma_kju)))))
+        log_prod_gamma_jm = p_gamma_jm .+ log(abs(p_m))
+        log_prod_gamma_ju = p_gamma_ju .+ log(abs(p_u))
         zeta_j = exp.(log_prod_gamma_jm - logxpy(log_prod_gamma_jm,log_prod_gamma_ju))
-        num_prod = exp.(log.(n_j) + log.(zeta_j))
+        num_prod = exp.(log.(abs.(n_j)) + log.(abs.(zeta_j)))
         p_m = exp(log(abs(sum(num_prod) + mu - 1)) - log(abs(psi - mu + sum(n_j))))
         p_u = 1-p_m
 

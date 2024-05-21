@@ -34,12 +34,12 @@ function generate_tf_skeleton(EMOutput::Dict{String,Any}, tf_indices::Vector{Vec
             prior = log2(EMOutput["p_m"]/EMOutput["p_u"])
             if isempty(colindices)
                 Dict("tf_adjustment_weight" => [0.0],
-                     "final_weight" => [prior + Float64(patterns_w.weights)],
-                     "final_zetaj" => [bf_to_probability(prior + Float64(patterns_w.weights))],
-                     "ismatch" => bf_to_probability(prior + Float64(patterns_w.weights)) >= EMOutput["threshold_match"],
+                     "final_weight" => [Float64(prior + patterns_w.weights)],
+                     "final_zetaj" => [bf_to_probability(Float64(prior + patterns_w.weights))],
+                     "ismatch" => bf_to_probability(Float64(prior + patterns_w.weights)) >= EMOutput["threshold_match"],
                      "tf_adjusted" => false)
             else
-                generate_pattern_level_structure(count, varnames[colindices], prior + Float64(patterns_w.weights))
+                generate_pattern_level_structure(count, varnames[colindices], Float64(prior + patterns_w.weights))
             end
         end
 end

@@ -22,6 +22,26 @@ function score_value(dist::Float64,indices_x::Vector{<:Integer},indices_y::Vecto
     return nothing
 end
 
+function score_single2(dist::Float64,ix::A,iy::A, cut_a::Float64, cut_b::Float64, results::DiBitMatrix) where A <: Integer
+    # if matches at a threshold, go through result vector and assign new value
+    if dist >= cut_a
+        results[ix,iy] = match2
+    elseif dist >= cut_b
+        results[ix,iy] = match1
+    end
+    return nothing
+end
+
+function score_single(dist::Float64,ix::A,iy::A, cut_a::Float64, cut_b::Float64, results::DiBitMatrix) where A <: Integer
+    # if matches at a threshold, go through result vector and assign new value
+    if dist >= cut_a
+        results[ix,iy] = match2
+    end
+    return nothing
+end
+
+
+
 
 """
 String comparison of two columns with partial match.
@@ -210,6 +230,125 @@ function gammaCKpar!(vecA::PooledVector,vecB::PooledVector,
             end
         end
     end
+    # Return nothing
+    return nothing
+end
+
+# handling highly unique data
+function gammaCKpar!(vecA::Vector,vecB::Vector,
+                     results::DiBitMatrix;
+                     distmethod="jw",cut_a=0.92,cut_b=0.88,partial=true,w=0.1)
+
+    if @isdefined(_dims) == false
+        _dims = (length(vecA), length(vecB))
+    end
+    
+    # assign distance function
+    if distmethod=="jw"
+        distance = JaroWinkler(p=w)
+    elseif distmethod=="dl"
+        distance = DamerauLevenshtein()
+    elseif distmethod=="jaro"
+        distance = Jaro(p=w)
+    elseif distmethod=="lv"
+        distance = Levenshtein()
+    elseif distmethod=="ro"
+        distance = RatcliffObershelp()
+    elseif distmethod=="osa"
+        distance = OptimalStringAlignment()
+    elseif distmethod=="hamming"
+        distance = Hamming()
+    end
+
+
+    if partial
+        score_value! = score_single2
+    else
+        score_value! = score_single
+    end
+    
+    # Segment unique keys from missing key
+    Threads.@threads for (ix, x) in collect(enumerate(vecA))
+        if ismissing(x)
+            for iy in collect(1:_dims[2])
+                results[ix,iy] = missingval
+            end
+        else
+            Threads.@threads for (iy, y) in collect(enumerate(vecB))
+                if ismissing(y)
+                    results[ix,iy] = missingval
+                else
+                    dist=round(compare(x,y, distance),digits=4)
+                    score_value!(dist, ix,iy, cut_a,cut_b, results)
+                end
+            end
+        end
+    end
+    
+
+    # Return nothing
+    return nothing
+end
+
+
+
+# handling highly unique data
+function gammaCKpar!(vecA::Vector,vecB::Vector,
+                     results::DiBitMatrix,
+                     tf_table_x::SubArray{Float16},
+                     tf_table_y::SubArray{Float16};
+                     distmethod="jw",cut_a=0.92,cut_b=0.88,partial=true,w=0.1,
+                     tf_minimum_u_value=0.001)
+    if @isdefined(_dims) == false
+        _dims = (length(vecA), length(vecB))
+    end
+    freqsA = countmap(vecA)
+    freqsB = countmap(vecB)
+    # assign distance function
+    if distmethod=="jw"
+        distance = JaroWinkler(p=w)
+    elseif distmethod=="dl"
+        distance = DamerauLevenshtein()
+    elseif distmethod=="jaro"
+        distance = Jaro(p=w)
+    elseif distmethod=="lv"
+        distance = Levenshtein()
+    elseif distmethod=="ro"
+        distance = RatcliffObershelp()
+    elseif distmethod=="osa"
+        distance = OptimalStringAlignment()
+    elseif distmethod=="hamming"
+        distance = Hamming()
+    end
+
+
+    if partial
+        score_value! = score_single2
+    else
+        score_value! = score_single
+    end
+    
+    # Segment unique keys from missing key
+    Threads.@threads for (ix, x) in collect(enumerate(vecA))
+        if ismissing(x)
+            for iy in collect(1:_dims[2])
+                results[ix,iy] = missingval
+            end
+        else
+            tf_table_x[ix] = max(freqsA[x]/_dims[1], tf_minimum_u_value)
+            Threads.@threads for (iy, y) in collect(enumerate(vecB))                
+                if ismissing(y)
+                    results[ix,iy] = missingval
+                else
+                    tf_table_y[iy] = max(freqsB[y]/_dims[2], tf_minimum_u_value)
+                    dist=round(compare(x,y, distance),digits=4)
+                    score_value!(dist, ix,iy, cut_a,cut_b, results)
+                end
+            end
+        end
+    end
+    
+    
     # Return nothing
     return nothing
 end

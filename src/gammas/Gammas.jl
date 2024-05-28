@@ -1,7 +1,7 @@
 module Gammas
 import PooledArrays: PooledVector, PooledArray
 import StringDistances: Jaro, JaroWinkler, Levenshtein, DamerauLevenshtein, compare
-
+import StatsBase: countmap
 using ..DiBitMat
 import ..nonmatch, ..match1, ..match2, ..missingval
 

@@ -147,7 +147,7 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any}, benc
     # allow missing for comparisons
     allowmissing!(dfA)
     allowmissing!(dfB)
-
+    
     benchtimes = []
     for v in varnames
         starttime = time()

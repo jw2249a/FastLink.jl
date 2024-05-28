@@ -232,7 +232,7 @@ end
 function process_comparisons(res::Dict{String, DiBitMatrix},
                              emlink_configuration::Vector{Vector{Dict{String, Any}}},
                              _dims::Tuple{Int64,Int64},
-                             parameters::Dict{String, Dict{String, Any}},
+                             parameters::Dict{String, <: Any},
                              tf_tables::Dict{String, Vector{Vector{Float16}}})
     final_name = last(emlink_configuration)[1]["name"]
     for emconfig in emlink_configuration

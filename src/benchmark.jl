@@ -1,21 +1,53 @@
-using DataFrames
+using Base: postoutput
+using Pkg
+Pkg.develop(path="..")
 using FastLink
+using DataFrames
 using BenchmarkTools
 using CSV
 import Pkg.Artifacts: @artifact_str
 using Profile
 
+outputfile = "../benchmark.csv"
+
 include("utils/prettyprinting.jl")
 
-a_fil="../../rstudio/test_merge/data/test_a.csv"
-b_fil="../../rstudio/test_merge/data/test_b.csv"
+a_fil="../../../rstudio/test_merge/data/test_a.csv"
+b_fil="../../../rstudio/test_merge/data/test_b.csv"
 
-#varnames=["FIRST_NAME"]
-varnames=["FIRST_NAME", "MIDDLE_NAME", "LAST_NAME", "STREET_NAME"]
-match_type=["fuzzy","fuzzy","fuzzy","fuzzy"]
-#varnames=["FIRST_NAME", "MIDDLE_NAME", "LAST_NAME", "STREET_NAME", "STATE"]
-#[100,200,500,1_000,2_000,4_000, 5_000, 10_000,20_000, 40_000, 50_000,100_000,1_000_000]
-idvars=("TS_ID","TV_ID")
+
+config = Dict("link_type"=>"link_only",
+     "idvar"=> ["TV_ID", "TS_ID"],
+     "comparisons"=> Dict("name" => "total",
+                         "threshold_match" => 0.88,
+                         "variables" => [
+                             Dict("varname" => "FIRST_NAME",
+                                  "method" => "jarowinkler",
+                                  "tf_adjust" => true),
+                             Dict("varname" => "MIDDLE_NAME",
+                                  "method" => "exact",
+                                  "tf_adjust" => true),
+                             Dict("varname" => "STREET_NAME",
+                                  "method" => "jarowinkler",
+                                  "tf_adjust" => true) ]))
+
+
+config_tf = Dict("link_type"=>"link_only",
+     "idvar"=> ["TV_ID", "TS_ID"],
+     "comparisons"=> Dict("name" => "total",
+                         "threshold_match" => 0.88,
+                         "variables" => [
+                             Dict("varname" => "FIRST_NAME",
+                                  "method" => "jarowinkler"),
+                             Dict("varname" => "MIDDLE_NAME",
+                                  "method" => "exact"),
+                             Dict("varname" => "STREET_NAME",
+                                  "method" => "jarowinkler")]))
+
+open(outputfile, "w" do file
+         write(file,"\"N1\",\"N2\",\"u_FIRST_NAME\",\"u_MIDDLE_NAME\"")
+
+
 N2=20_000
 N1_N=[10_000,50_000,100_000,500_000,750_000,1_000_000]
 println("## $(length(varnames)) vars")
@@ -35,7 +67,7 @@ for N1 in N1_N
                  ntasks=1,
                  pool=true,
                  missingstring=["", "NA", "NaN", "NULL", "Null"])
-
-    @btime fastLink($dfA,$dfB,$varnames,$idvars,match_method=$match_type)
+    
+    res = @benchmark fastLink($dfA,$dfB,$config)
 
 end

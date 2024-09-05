@@ -120,12 +120,23 @@ Each `method` has a number of arguments that can be specified for that matching 
 __________________
 ### `fastLink`'s output
 
-A `NamedTuple` with these vars:
+For ease of extracting matches, the `getMatches` function was added. You can call it on the fastLink output as the single argument `getMatches(FastLinkOutput)` or with a specified threshold `getMatches(FastLinkOutput, threshold_match)`.
 
-- `indices` - a vector with indices in `dfA` and `dfB` that are in each pattern group (see `patterns_w` or `patterns_b`)
+The FastLink output is:
+A `Dict{String,Any}` with these vars:
+- `ids`: A vector of vectors of tuple pairs of ids for each match pattern.
+- `idvar`: ID variable from configuration
+- `resultsEM`: The results of the Expectation Maximization algorithm
 
-- `matched_ids` - same as `indices` but using `idvars` from input parameters
+If term frequency is specified then 
+- `resultsTF`: term frequencies for each variable with specified term frequency by pattern if relevant for the pattern (if no term frequency is applied then tf_adjusted is false).
 
+If benchmark is specified:
+- `benchtimes`: times for each variable to be matched.
+
+
+
+Within `resultsEM` in the EM output, there is:
 - `iter_converge` - number of iterations for expectation maximization algorithm to converge. 
 
 - `obs_a` - observations in `dfA`
@@ -136,8 +147,12 @@ A `NamedTuple` with these vars:
 
 - `p_u` - posterior **not** match probability
 
+- `number_of_unique_patterns` - equivalent to number of rows in `patterns_w`
+
+- `number_of_comparisons` - For convenience `nrow(dfA) * nrow(dfB)`
+
 - `patterns_w` - a `DataFrame` of:
-  - `gamma_` - An `Int64` with the gamma values for each variable (similar to `patterns_b`)
+  - `gamma_*` - An `Int64` with the gamma values for each variable (similar to `patterns_b`)
   - `counts` - An `Int64` with counts for each agreement pattern
   - `weights` - An `Int64` with partial match weights for each agreement pattern
   - `p_gamma_jm` - A `Float64` that has the posterior probability that a pair matches for each agreement pattern
@@ -150,9 +165,8 @@ A `NamedTuple` with these vars:
 
 - `pgamma_ku` - A `Vector{Vector{Float64}}` with posterior probababilities for each variable in the EM algorithm. Ordered (2,1,0).
 
-- `tf_adj_table` - A `Vector{DataFrame}` that has a DataFrame for each match pattern and a row in each DataFrame for each comparison appended with the letter of their corresponding dataset.
+- `p_gamma_jm` - A `Float64` that has the posterior probability that a pair matches for each agreement pattern  (see `patterns_w`).
+- `p_gamma_ju` - A `Float64` that has the posterior probability that a pair **does not** match for each agreement pattern (see `patterns_w`).
 
 - `varnames` - A `Vector{String}` of the input variable names
- 
-- `zeta_j` - A `Vector{Float64}` with the posterior match probabilities for each agreement pattern. 
 

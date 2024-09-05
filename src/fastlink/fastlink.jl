@@ -1,6 +1,3 @@
-
-
-
 """
 Probabilistic record matching using FastLink data-matching algorithm.
 Algorithm taken from:
@@ -115,12 +112,14 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any})
     results = process_comparisons(res, emlink_configuration, _dims, parameters, tf_tables)
 
     if length(results)  == 3
-        return Dict("ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
-                "resultsEM" => results[2],
-                "resultsTF" => results[3])
+        return Dict("idvar" => config["idvar"],
+                    "ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
+                    "resultsEM" => results[2],
+                    "resultsTF" => results[3])
     else
-        return Dict("ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
-                "resultsEM" => results[2])
+        return Dict("idvar" => config["idvar"],
+                    "ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
+                    "resultsEM" => results[2])
     end
 end
 
@@ -229,12 +228,14 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any}, benc
     results = process_comparisons(res, emlink_configuration, _dims, parameters, tf_tables)
 
     if length(results)  == 3
-        return Dict("ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
+        return Dict("idvar" => config["idvar"],
+            "ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
                 "resultsEM" => results[2],
                     "resultsTF" => results[3],
                     "benchtimes" => benchtimes)
     else
-        return Dict("ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
+        return Dict("idvar" => config["idvar"],
+                    "ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
                     "resultsEM" => results[2],
                      "benchtimes" => benchtimes)
     end

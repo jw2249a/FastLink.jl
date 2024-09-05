@@ -29,6 +29,7 @@ const STRING_DISTANCE_METHODS = Dict("jw" => "jw",
                                      "optimalstringalignment" => "osa"
                                      )
 
+include("getMatches.jl")
 include("settings/settings.jl")
 include("DiBitMatrix.jl")
 include("matchPatterns.jl")
@@ -37,6 +38,7 @@ include("term_frequency_adjustment.jl")
 include("emlink.jl")
 include("patterns.jl")
 
+using .getmatches
 using .settings
 using .DiBitMat
 using .matchpatterns
@@ -47,7 +49,9 @@ using .patterns
 
 include("fastlink/fastlink.jl")
 
-export gammaCKpar!, gammaKpar!, gammaCKfuzzy!, gammaNUMCKpar!, DiBitMatrix, namedtuple, fetch_parameters, retrieve, parse_configuration, remove_keys, emlinkMARmov,  STRING_DISTANCE_METHODS, match1, match2, missingval, nonmatch, indices_to_uids, process_comparisons, fastLink
+
+
+export getMatches, gammaCKpar!, gammaKpar!, gammaCKfuzzy!, gammaNUMCKpar!, DiBitMatrix, namedtuple, fetch_parameters, retrieve, parse_configuration, remove_keys, emlinkMARmov,  STRING_DISTANCE_METHODS, match1, match2, missingval, nonmatch, indices_to_uids, process_comparisons, fastLink
 
 #export(fastLink)
 

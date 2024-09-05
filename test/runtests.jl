@@ -62,15 +62,16 @@ config = Dict("idvar" => ["ida", "idb"],
 @testset "Testing FastLink Basic Run" begin
     @info "Executing fastLink()"
     results=fastLink(dfA,dfB,config)
-
-
     @info "Correct # of Matches"
+    matches = getMatches(results)
     p_w = results["resultsEM"]["patterns_w"]
-    inds = p_w.zeta_j .>= 0.85
+    inds = p_w.zeta_j .>= results["resultsEM"]["threshold_match"]
     @test sum(p_w.counts[inds]) == 50
+    @info "Correct grouping of matches"
+    @info p_w.counts[inds] == nrow.(matches)
     @info "Number of patterns == 26"
     @test results["resultsEM"]["number_of_unique_patterns"] == 26
-    @info "Number of counts == (N₁×N₂) "
+    @info "Number of counts == (N₁×N₂)"
     @test sum(p_w.counts) == nrow(dfA) * nrow(dfB)
     @info "Ρ(𝑢) >=.999"
     @test results["resultsEM"]["p_u"] >= .999

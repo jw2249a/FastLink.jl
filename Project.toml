@@ -1,7 +1,7 @@
 name = "FastLink"
 uuid = "11f39cfd-5548-489f-be9a-f4ad0ff6eadc"
 authors = ["Jack R. Williams <contact@jackryanwilliams.com>"]
-version = "0.0.7"
+version = "0.0.8"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"

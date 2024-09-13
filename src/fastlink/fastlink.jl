@@ -41,7 +41,6 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any})
         @info "Now matching var $(v) using $(match_method) with tf_adjust: $term_freq_adjustment"
         if term_freq_adjustment
             comparisons_args=namedtuple(remove_keys(parameters[v], ["method", "varname", "tf_adjust", "tf_adjustment_weight"]))
-            
             if match_method == "fuzzy"
                 gammaCKfuzzy!(dfA[!,v],
                               dfB[!,v],
@@ -107,10 +106,13 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any})
                                comparisons_args...)
                 end
         end
+        # reduction in columns to preserve memory only idvar should be left after
+        select!(dfA, Not(v))
+        select!(dfB, Not(v))
     end     
 
     results = process_comparisons(res, emlink_configuration, _dims, parameters, tf_tables)
-
+    
     if length(results)  == 3
         return Dict("idvar" => config["idvar"],
                     "ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
@@ -222,6 +224,9 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any}, benc
                                comparisons_args...)
                 end
         end
+         # reduction in columns to preserve memory only idvar should be left after
+        select!(dfA, Not(v))
+        select!(dfB, Not(v))
         push!(benchtimes, time() - starttime)
     end     
     

@@ -104,7 +104,9 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any})
                                dfB[!,v],
                                res[v];
                                comparisons_args...)
-                end
+            end
+            # manual garbage collection needs to be initiated
+            GC.gc()
         end
         # reduction in columns to preserve memory only idvar should be left after
         select!(dfA, Not(v))
@@ -112,7 +114,8 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any})
     end     
 
     results = process_comparisons(res, emlink_configuration, _dims, parameters, tf_tables)
-    
+    # manual garbage collection needs to be initiated
+    GC.gc()
     if length(results)  == 3
         return Dict("idvar" => config["idvar"],
                     "ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),
@@ -222,7 +225,9 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any}, benc
                                dfB[!,v],
                                res[v];
                                comparisons_args...)
-                end
+            end
+            # manual garbage collection needs to be initiated
+            GC.gc()
         end
          # reduction in columns to preserve memory only idvar should be left after
         select!(dfA, Not(v))
@@ -231,7 +236,8 @@ function fastLink(dfA::DataFrame, dfB::DataFrame, config::Dict{String,Any}, benc
     end     
     
     results = process_comparisons(res, emlink_configuration, _dims, parameters, tf_tables)
-
+    # manual garbage collection needs to be initiated
+    GC.gc()
     if length(results)  == 3
         return Dict("idvar" => config["idvar"],
             "ids" => indices_to_uids(dfA[!, config["idvar"][1]],dfB[!, config["idvar"][2]],results[1].indices),

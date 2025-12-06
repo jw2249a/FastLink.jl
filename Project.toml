@@ -20,7 +20,7 @@ Distributions = "0.25.102 - 0.25.122"
 JSON = "1"
 PooledArrays = "1.4.3"
 StaticStrings = "0.2.6"
-StatsBase = "0.34.0 - 0.34.8"
+StatsBase = "0.34"
 StringDistances = "0.11.3"
 
 [extras]
